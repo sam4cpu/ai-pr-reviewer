@@ -15,10 +15,11 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Debug and run reviewer script
+      - name: Run reviewer script
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in current directory:"
-          ls -R
-          python ./github/actions/ai_pr_reviewer/reviewer.py
+         echo "Current directory: $(pwd)"
+         ls -R
+         python .github/actions/ai_pr_reviewer/reviewer.py
+
+
 
