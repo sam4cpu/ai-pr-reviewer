@@ -19,7 +19,7 @@ jobs:
         run: |
          echo "Current directory: $(pwd)"
          ls -R
-         python .github/actions/ai_pr_reviewer/reviewer.py
+         python .github/actions/ai_pr_reviewer/reviewer.py 
 
 
 
