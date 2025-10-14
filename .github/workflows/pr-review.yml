@@ -1,4 +1,5 @@
 name: AI PR Reviewer
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -6,9 +7,12 @@ on:
 jobs:
   ai_pr_review:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -17,9 +21,11 @@ jobs:
 
       - name: Run reviewer script
         run: |
-         echo "Current directory: $(pwd)"
-         ls -R
-         python .github/actions/ai_pr_reviewer/reviewer.py
+          echo "🔍 Current directory: $(pwd)"
+          echo "📂 Files in repository:"
+          ls -R
+          python .github/actions/ai_pr_reviewer/reviewer.py
+
 
 
 
