@@ -1,16 +1,15 @@
-import os
-import json
+import os, json, logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 def main():
-    print("✅ AI PR Reviewer triggered successfully!")
+    logging.info("✅ AI PR Reviewer triggered successfully!")
 
     event_path = os.getenv("GITHUB_EVENT_PATH")
-
     if not event_path or not os.path.exists(event_path):
-        print("⚠️ No GitHub event file found — running in test mode.")
+        logging.warning("No GitHub event file found — running in test mode.")
         return
 
-    # Load PR data from the event file GitHub provides
     with open(event_path, "r") as f:
         event = json.load(f)
 
@@ -19,12 +18,13 @@ def main():
     user = pr.get("user", {}).get("login", "Unknown")
     branch = pr.get("head", {}).get("ref", "Unknown")
 
-    print(f"🔹 PR Title: {title}")
-    print(f"👤 Author: {user}")
-    print(f"🌿 Branch: {branch}")
+    logging.info(f"🔹 PR Title: {title}")
+    logging.info(f"👤 Author: {user}")
+    logging.info(f"🌿 Branch: {branch}")
 
 if __name__ == "__main__":
     main()
+
 
 
 
