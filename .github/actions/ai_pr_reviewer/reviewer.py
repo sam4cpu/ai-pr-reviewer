@@ -1,33 +1,58 @@
 import os
+import json
+import logging
 import requests
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
 def main():
-    repo = os.getenv("GITHUB_REPOSITORY")
-    pr_number = os.getenv("PR_NUMBER")
-    token = os.getenv("GITHUB_TOKEN")
+    logging.info(" AI PR Reviewer started")
 
-    print(f" Fetching data for PR #{pr_number} in {repo}...")
+    # GitHub provides this automatically for Actions
+    event_path = os.getenv("GITHUB_EVENT_PATH")
+    github_token = os.getenv("GITHUB_TOKEN")
+    repo = os.getenv("GITHUB_REPOSITORY")  # e.g., "sam4cpu/ai-pr-reviewer"
 
-    headers = {"Authorization": f"Bearer {token}"}
-    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
-
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f" Failed to fetch PR data: {response.status_code}")
-        print(response.text)
+    if not all([event_path, github_token, repo]):
+        logging.error("Missing environment variables. Exiting.")
         return
 
-    pr_data = response.json()
+    # Read PR info from the event payload
+    with open(event_path, "r") as f:
+        event = json.load(f)
 
-    print(" PR Data successfully retrieved:")
-    print(f"Title: {pr_data['title']}")
-    print(f"Author: {pr_data['user']['login']}")
-    print(f"Branch: {pr_data['head']['ref']}")
-    print(f"Base: {pr_data['base']['ref']}")
-    print(f"URL: {pr_data['html_url']}")
+    pr = event.get("pull_request", {})
+    pr_number = pr.get("number")
+    if not pr_number:
+        logging.error("No pull request number found.")
+        return
+
+    logging.info(f" Fetching changed files for PR #{pr_number} in {repo}")
+
+    # Build the GitHub API request
+    api_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
+    headers = {"Authorization": f"Bearer {github_token}"}
+
+    response = requests.get(api_url, headers=headers)
+    if response.status_code != 200:
+        logging.error(f"GitHub API error: {response.status_code} {response.text}")
+        return
+
+    files = response.json()
+    logging.info(f"🧩 Found {len(files)} changed files")
+
+    for fdata in files:
+        filename = fdata["filename"]
+        status = fdata["status"]
+        additions = fdata["additions"]
+        deletions = fdata["deletions"]
+        logging.info(f" {filename} (+{additions}/-{deletions}) [{status}]")
+
+    logging.info(" Data fetch complete — ready for AI analysis next stage.")
 
 if __name__ == "__main__":
     main()
+
 
 
 
