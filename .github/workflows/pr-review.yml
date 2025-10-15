@@ -28,6 +28,12 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python .github/actions/ai_pr_reviewer/reviewer.py
 
+      - name: Upload PR data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr_data
+          path: pr_data.json
+
 
 
 
