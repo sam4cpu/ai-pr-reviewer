@@ -6,4 +6,4 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 [View Workflow Logs →](https://github.com/sam4cpu/ai-pr-reviewer/actions)
 
-GitHub Action that uses AI to review pull requests and suggest pytest tests
+GitHub Action that uses AI to review pull requests and suggest pytest tests checking
