@@ -1,29 +1,34 @@
-import os, json, logging
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+import os
+import requests
 
 def main():
-    logging.info("✅ AI PR Reviewer triggered successfully!")
+    repo = os.getenv("GITHUB_REPOSITORY")
+    pr_number = os.getenv("PR_NUMBER")
+    token = os.getenv("GITHUB_TOKEN")
 
-    event_path = os.getenv("GITHUB_EVENT_PATH")
-    if not event_path or not os.path.exists(event_path):
-        logging.warning("No GitHub event file found — running in test mode.")
+    print(f" Fetching data for PR #{pr_number} in {repo}...")
+
+    headers = {"Authorization": f"Bearer {token}"}
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        print(f" Failed to fetch PR data: {response.status_code}")
+        print(response.text)
         return
 
-    with open(event_path, "r") as f:
-        event = json.load(f)
+    pr_data = response.json()
 
-    pr = event.get("pull_request", {})
-    title = pr.get("title", "Unknown")
-    user = pr.get("user", {}).get("login", "Unknown")
-    branch = pr.get("head", {}).get("ref", "Unknown")
-
-    logging.info(f"🔹 PR Title: {title}")
-    logging.info(f"👤 Author: {user}")
-    logging.info(f"🌿 Branch: {branch}")
+    print(" PR Data successfully retrieved:")
+    print(f"Title: {pr_data['title']}")
+    print(f"Author: {pr_data['user']['login']}")
+    print(f"Branch: {pr_data['head']['ref']}")
+    print(f"Base: {pr_data['base']['ref']}")
+    print(f"URL: {pr_data['html_url']}")
 
 if __name__ == "__main__":
     main()
+
 
 
 
