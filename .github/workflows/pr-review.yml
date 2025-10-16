@@ -26,7 +26,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python .github/actions/ai_pr_reviewer/reviewer.py
+
 
       - name: Upload PR data artifact
         uses: actions/upload-artifact@v4
