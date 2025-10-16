@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
+      - name: Install dependencies
+        run: |
+          pip install openai requests
+
       - name: Run reviewer script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
