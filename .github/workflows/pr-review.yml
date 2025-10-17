@@ -41,7 +41,10 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python .github/actions/ai_pr_reviewer/reviewer.py
+        run: |
+          echo "Running AI PR Reviewer..."
+          python .github/actions/ai_pr_reviewer/reviewer.py
+
 
 
 
