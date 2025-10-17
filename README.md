@@ -10,4 +10,4 @@ GitHub Action that uses AI to review pull requests and suggest pytest tests
 
 Day 1: Workflow initialized and verified
 Day 2: Integrated GitHub REST API + saved PR data as artifact
-Day 3: Add OpenAI API to analyze code diffs
+Day 3: Add OpenAI API to analyze code diffs (Open API integration)
