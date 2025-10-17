@@ -4,11 +4,11 @@ from openai import OpenAI
 
 def read_diff_file(path="pr_diff.patch"):
     if not os.path.exists(path):
-        print("⚠️ No diff file found.")
+        print(" No diff file found.")
         return None
     with open(path, "r", encoding="utf-8") as f:
         diff = f.read()
-    print(f"📄 Loaded diff file ({len(diff)} chars)")
+    print(f" Loaded diff file ({len(diff)} chars)")
     return diff[:8000]  # limit for token safety
 
 def main():
@@ -16,6 +16,11 @@ def main():
     pr_number = os.getenv("PR_NUMBER")
     token = os.getenv("GITHUB_TOKEN")
     openai_key = os.getenv("OPENAI_API_KEY")
+
+    if not all([repo, pr_number, token, openai_key]):
+        print(" Missing one or more required environment variables.")
+        return
+
 
     print(f" Starting AI PR Review for {repo} (PR #{pr_number})...")
 
@@ -82,6 +87,22 @@ def main():
             f.write(ai_feedback)
 
         print("\n Saved AI feedback to ai_review.md")
+        # --- Post the AI feedback as a PR comment ---
+        print("\n Posting AI feedback as a GitHub PR comment...")
+
+        comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
+        comment_headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        comment_body = {"body": f"### 🤖 AI PR Review\n\n{ai_feedback}"}
+
+        response = requests.post(comment_url, headers=comment_headers, json=comment_body)
+
+        if response.status_code == 201:
+            print(" Successfully posted comment to PR!")
+        else:
+            print(f" Failed to post comment: {response.status_code} - {response.text}")
 
     except Exception as e:
         print(f" Error during OpenAI request: {e}")
