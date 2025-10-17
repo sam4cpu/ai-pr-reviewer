@@ -1,7 +1,15 @@
 import os
-import json
 import requests
 from openai import OpenAI
+
+def read_diff_file(path="pr_diff.patch"):
+    if not os.path.exists(path):
+        print("⚠️ No diff file found.")
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        diff = f.read()
+    print(f"📄 Loaded diff file ({len(diff)} chars)")
+    return diff[:8000]  # limit for token safety
 
 def main():
     repo = os.getenv("GITHUB_REPOSITORY")
@@ -11,41 +19,57 @@ def main():
 
     print(f" Starting AI PR Review for {repo} (PR #{pr_number})...")
 
-    # Fetch PR data again
+    # Fetch PR info (title + description)
     headers = {"Authorization": f"Bearer {token}"}
-    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f" GitHub API error: {response.status_code}")
-        return
-
-    pr_data = response.json()
+    pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+    pr_data = requests.get(pr_url, headers=headers).json()
     title = pr_data.get("title", "")
     body = pr_data.get("body", "")
 
     print(f" Fetched PR: {title}")
 
-    # Initialize OpenAI client
+    # Load diff
+    diff_content = read_diff_file()
+    if not diff_content:
+        print(" No diff to analyze, exiting.")
+        return
+
+    # Initialize OpenAI
     client = OpenAI(api_key=openai_key)
 
     prompt = f"""
     You are a senior software engineer reviewing a pull request.
-    Here is the PR title and description:
 
-    Title: {title}
-    Description: {body}
+    **PR Title:** {title}
+    **Description:** {body}
 
-    Provide a brief, professional summary of what this PR likely does,
-    any potential improvements or risks, and next steps for testing.
+    Below is the unified diff of the code changes:
+    {diff_content}
+
+    Please analyze this diff and provide structured review feedback in markdown format:
+
+    ## AI Code Review Feedback
+
+    ### Summary
+    - Summarize what this PR changes.
+
+    ### Potential Issues
+    - List possible bugs, logic errors, or risky design choices.
+
+    ### Suggestions
+    - Suggest code improvements or refactors.
+
+    ### Testing Recommendations
+    - Recommend relevant pytest tests or scenarios.
     """
 
-    print(" Sending request to OpenAI...")
+    print(" Sending diff to OpenAI for analysis...")
 
     try:
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a professional code reviewer."},
+                {"role": "system", "content": "You are a professional software engineer."},
                 {"role": "user", "content": prompt}
             ]
         )
@@ -54,16 +78,17 @@ def main():
         print("\n AI Review Feedback:\n")
         print(ai_feedback)
 
-        with open("ai_review.txt", "w") as f:
+        with open("ai_review.md", "w", encoding="utf-8") as f:
             f.write(ai_feedback)
 
-        print("\n Saved AI feedback to ai_review.txt")
+        print("\n Saved AI feedback to ai_review.md")
 
     except Exception as e:
         print(f" Error during OpenAI request: {e}")
 
 if __name__ == "__main__":
     main()
+
 
 
 
