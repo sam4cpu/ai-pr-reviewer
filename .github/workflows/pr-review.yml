@@ -25,6 +25,16 @@ jobs:
         run: |
           pip install openai requests
 
+      - name: Fetch pull request diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching PR diff..."
+          curl -sSL -H "Accept: application/vnd.github.v3.diff" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          ${{ github.event.pull_request.url }} > pr_diff.patch
+          echo " Diff saved to pr_diff.patch"
+
       - name: Run reviewer script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
