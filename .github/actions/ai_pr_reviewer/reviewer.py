@@ -1,15 +1,42 @@
 import os
 import requests
 from openai import OpenAI
+import time
+from openai import APIError, RateLimitError
+
+
+def request_with_retry(client, messages, model="gpt-4o-mini", max_retries=3):
+    for attempt in range(1, max_retries + 1):
+        try:
+            completion = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                timeout=30
+            )
+            return completion.choices[0].message.content
+        except RateLimitError:
+            wait_time = 5 * attempt
+            print(f" Rate limit hit. Retrying in {wait_time}s...")
+            time.sleep(wait_time)
+        except APIError as e:
+            print(f" API error: {e}. Retrying...")
+            time.sleep(3)
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            break
+    print("❌ Failed after multiple attempts.")
+    return None
+
 
 def read_diff_file(path="pr_diff.patch"):
     if not os.path.exists(path):
-        print(" No diff file found.")
+        print("⚠️ No diff file found.")
         return None
     with open(path, "r", encoding="utf-8") as f:
         diff = f.read()
     print(f" Loaded diff file ({len(diff)} chars)")
     return diff[:8000]  # limit for token safety
+
 
 def main():
     repo = os.getenv("GITHUB_REPOSITORY")
@@ -18,9 +45,8 @@ def main():
     openai_key = os.getenv("OPENAI_API_KEY")
 
     if not all([repo, pr_number, token, openai_key]):
-        print(" Missing one or more required environment variables.")
+        print("❌ Missing one or more required environment variables.")
         return
-
 
     print(f" Starting AI PR Review for {repo} (PR #{pr_number})...")
 
@@ -36,7 +62,7 @@ def main():
     # Load diff
     diff_content = read_diff_file()
     if not diff_content:
-        print(" No diff to analyze, exiting.")
+        print("❌ No diff to analyze, exiting.")
         return
 
     # Initialize OpenAI
@@ -71,15 +97,15 @@ def main():
     print(" Sending diff to OpenAI for analysis...")
 
     try:
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a professional software engineer."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+        ai_feedback = request_with_retry(client, [
+            {"role": "system", "content": "You are a professional software engineer."},
+            {"role": "user", "content": prompt}
+        ])
 
-        ai_feedback = completion.choices[0].message.content
+        if not ai_feedback:
+            print("❌ No feedback returned after retries.")
+            return
+
         print("\n AI Review Feedback:\n")
         print(ai_feedback)
 
@@ -87,8 +113,9 @@ def main():
             f.write(ai_feedback)
 
         print("\n Saved AI feedback to ai_review.md")
+
         # --- Post the AI feedback as a PR comment ---
-        print("\n Posting AI feedback as a GitHub PR comment...")
+        print("\n💬 Posting AI feedback as a GitHub PR comment...")
 
         comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
         comment_headers = {
@@ -105,10 +132,13 @@ def main():
             print(f" Failed to post comment: {response.status_code} - {response.text}")
 
     except Exception as e:
-        print(f" Error during OpenAI request: {e}")
+        print(f" OpenAI request failed: {e}")
+
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
