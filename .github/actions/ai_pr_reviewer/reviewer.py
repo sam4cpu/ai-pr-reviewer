@@ -30,7 +30,7 @@ def request_with_retry(client, messages, model="gpt-4o-mini", max_retries=3):
 
 def read_diff_file(path="pr_diff.patch"):
     if not os.path.exists(path):
-        print("⚠️ No diff file found.")
+        print("❌ No diff file found.")
         return None
     with open(path, "r", encoding="utf-8") as f:
         diff = f.read()
@@ -115,14 +115,14 @@ def main():
         print("\n Saved AI feedback to ai_review.md")
 
         # --- Post the AI feedback as a PR comment ---
-        print("\n💬 Posting AI feedback as a GitHub PR comment...")
+        print("\n Posting AI feedback as a GitHub PR comment...")
 
         comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
         comment_headers = {
             "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json"
         }
-        comment_body = {"body": f"### 🤖 AI PR Review\n\n{ai_feedback}"}
+        comment_body = {"body": f"###  AI PR Review\n\n{ai_feedback}"}
 
         response = requests.post(comment_url, headers=comment_headers, json=comment_body)
 
