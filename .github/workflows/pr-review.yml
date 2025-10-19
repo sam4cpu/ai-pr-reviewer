@@ -49,7 +49,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           echo " Running AI PR Reviewer..."
-          python .github/actions/ai_pr_reviewer/reviewer.py || echo "⚠️ AI review step completed with fallback."
+          python .github/actions/ai_pr_reviewer/reviewer.py || echo " AI review step completed with fallback."
 
       # ---  Upload key artifacts for debugging and transparency ---
       - name:  Upload AI Review Artifact
