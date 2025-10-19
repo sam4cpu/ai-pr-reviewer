@@ -32,11 +32,11 @@ jobs:
         run: |
           echo "[INFO] Fetching PR diff..."
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          ${{ github.event.pull_request.url }} > pr_diff.patch
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            ${{ github.event.pull_request.url }} > pr_diff.patch
 
           if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] No diff file generated. Check PR content."
+            echo "[WARN] No diff file generated. Check PR content or permissions."
             exit 0
           fi
 
@@ -52,12 +52,17 @@ jobs:
           echo "[START] Running AI PR Reviewer..."
           python .github/actions/ai_pr_reviewer/reviewer.py
 
-      - name: Upload PR data artifact
+      - name: Upload AI review artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pr_data
+          name: ai_pr_review_artifacts
           path: |
-            pr_data.json
             ai_review.md
+            review_metadata.json
           if-no-files-found: ignore
 
+      - name: Log completion summary
+        run: |
+          echo "[SUMMARY] AI PR Review workflow completed."
+          echo "[SUMMARY] Review artifacts uploaded successfully."
+          echo "[SUMMARY] Check the PR comments or artifacts for details."
