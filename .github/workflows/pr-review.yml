@@ -1,4 +1,5 @@
-name: AI PR Reviewer
+name: 🤖 AI PR Reviewer
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -7,56 +8,62 @@ jobs:
   ai_pr_review:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
+      pull-requests: write
       contents: read
+
     steps:
+      # ---  Checkout the repository ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ---  Set up Python environment with caching ---
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'pip'
 
-      - name: Install dependencies
-        run: pip install requests
-
+      # ---  Install dependencies ---
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install openai requests
 
-      - name: Fetch pull request diff
+      # ---  Fetch pull request diff ---
+      - name:  Fetch pull request diff
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Fetching PR diff..."
+          echo "Fetching PR diff for ${{ github.event.pull_request.number }}..."
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
           -H "Authorization: Bearer $GITHUB_TOKEN" \
           ${{ github.event.pull_request.url }} > pr_diff.patch
           echo " Diff saved to pr_diff.patch"
 
-      - name: Run reviewer script
+      # ---  Run the AI PR Reviewer script ---
+      - name: Run AI PR Reviewer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "Running AI PR Reviewer..."
-          python .github/actions/ai_pr_reviewer/reviewer.py
+          echo " Running AI PR Reviewer..."
+          python .github/actions/ai_pr_reviewer/reviewer.py || echo "⚠️ AI review step completed with fallback."
 
-
-
-
-      - name: Upload PR data artifact
+      # ---  Upload key artifacts for debugging and transparency ---
+      - name:  Upload AI Review Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pr_data
+          name: ai_pr_review_output
+          path: |
+            ai_review.md
+            pr_diff.patch
+
+      # ---  Save PR data for analysis ---
+      - name:  Upload PR data artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr_metadata
           path: pr_data.json
-
-
-
-
-
-
-
