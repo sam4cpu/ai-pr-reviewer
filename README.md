@@ -13,3 +13,6 @@ Day 2: Integrated GitHub REST API + saved PR data as artifact
 Day 3: Add OpenAI API to analyze code diffs (Open API integration)
 Day 4: Implemented AI-powered PR review with reviewer.py
 Day 5: Enhanced workflow automation and integrated OpenAI responses with GitHub
+Day 6: Added repository context awareness and retry logic
+Day 7: Added mock test mode + repository context integration (advanced AI reviewer with fallback)
+
