@@ -26,6 +26,7 @@ def request_with_retry(client, messages, model="gpt-4o-mini", max_retries=3):
     print("[FAIL] OpenAI request failed after multiple attempts.")
     return None
 
+
 def read_diff_file(path="pr_diff.patch"):
     """Read the diff generated for the PR."""
     if not os.path.exists(path):
@@ -35,6 +36,7 @@ def read_diff_file(path="pr_diff.patch"):
         diff = f.read()
     print(f"[INFO] Loaded diff file ({len(diff)} characters).")
     return diff[:8000]  # Token safety
+
 
 def gather_repo_context(base_path="."):
     """Collect key contextual files (README, tests, dependencies)."""
@@ -71,17 +73,22 @@ def gather_repo_context(base_path="."):
 
     return "\n\n".join(context_snippets)
 
+
 def main():
     repo = os.getenv("GITHUB_REPOSITORY")
     pr_number = os.getenv("PR_NUMBER")
     token = os.getenv("GITHUB_TOKEN")
     openai_key = os.getenv("OPENAI_API_KEY")
 
-    if not all([repo, pr_number, token, openai_key]):
+    if not all([repo, pr_number, token]):
         print("[FATAL] Missing one or more required environment variables.")
         return
 
     print(f"[START] Running AI PR Review for {repo} (PR #{pr_number})...")
+
+    # Bonus Tip: indicate mode (mock vs live)
+    if not openai_key:
+        print("[MODE] Running in MOCK mode (no OpenAI calls).")
 
     # Fetch PR metadata 
     headers = {"Authorization": f"Bearer {token}"}
@@ -103,7 +110,7 @@ def main():
     print("[INFO] Loaded repository context for review.")
 
     # Initialize OpenAI 
-    client = OpenAI(api_key=openai_key)
+    client = OpenAI(api_key=openai_key) if openai_key else None
 
     # Build prompt
     prompt = f"""
@@ -139,14 +146,36 @@ the code diff and overall project context.
     print("[INFO] Sending diff + repo context to OpenAI for analysis...")
 
     try:
-        ai_feedback = request_with_retry(client, [
-            {"role": "system", "content": "You are a professional software engineer reviewing code."},
-            {"role": "user", "content": prompt}
-        ])
+        ai_feedback = None
 
+        if client:
+            ai_feedback = request_with_retry(client, [
+                {"role": "system", "content": "You are a professional software engineer reviewing code."},
+                {"role": "user", "content": prompt}
+            ])
+        else:
+            print("[WARN] No OpenAI key detected — skipping API call.")
+
+        # --- Mock mode fallback ---
         if not ai_feedback:
-            print("[FAIL] No feedback returned after retries.")
-            return
+            print("[INFO] Falling back to mock AI feedback mode.")
+            ai_feedback = """
+## Mock AI Review Feedback
+
+### Summary
+- Simulated PR review completed successfully (mock mode).
+
+### Potential Issues
+- None detected (this is a test simulation).
+
+### Suggestions
+- Integrate a live OpenAI API key for production reviews.
+- Add repository-wide linting or performance checks.
+
+### Testing Recommendations
+- Validate pipeline triggers and artifact outputs.
+- Ensure retry logic and mock handling work correctly.
+"""
 
         print("\n[OUTPUT] AI Review Feedback:\n")
         print(ai_feedback)
@@ -163,7 +192,7 @@ the code diff and overall project context.
             "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json"
         }
-        comment_body = {"body": f"### 🤖 AI PR Review\n\n{ai_feedback}"}
+        comment_body = {"body": f"###  AI PR Review\n\n{ai_feedback}"}
         response = requests.post(comment_url, headers=comment_headers, json=comment_body)
 
         if response.status_code == 201:
@@ -174,8 +203,10 @@ the code diff and overall project context.
     except Exception as e:
         print(f"[FATAL] OpenAI request failed: {e}")
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
