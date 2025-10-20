@@ -106,6 +106,24 @@ def main():
     body = pr_data.get("body", "")
     print(f"[INFO] Fetched PR: {title}")
 
+def categorize_pr(title, body, diff_content):
+    """Categorize PRs to tailor AI feedback."""
+    text = f"{title} {body} {diff_content[:500]}".lower()
+
+    if any(word in text for word in ["fix", "bug", "error", "issue"]):
+        return "bug fix"
+    elif any(word in text for word in ["add", "feature", "implement", "new"]):
+        return "feature addition"
+    elif any(word in text for word in ["refactor", "cleanup", "optimize"]):
+        return "refactor"
+    elif any(word in text for word in ["doc", "readme", "typo"]):
+        return "documentation update"
+    elif any(word in text for word in ["test", "pytest", "unittest"]):
+        return "test update"
+    else:
+        return "general change"
+
+
     diff_content = read_diff_file()
     if not diff_content:
         print("[WARN] No diff to analyze, exiting.")
