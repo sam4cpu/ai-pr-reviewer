@@ -13,12 +13,30 @@ def count_bullets(section_text):
     """Count markdown bullets for quick scoring."""
     return len(re.findall(r"^- ", section_text, flags=re.MULTILINE))
 
-def compute_confidence_score(summary, issues, suggestions):
-    """Simple confidence heuristic."""
+def detect_high_risk_terms(text):
+    """Detect security or stability red flags."""
+    risk_terms = [
+        "security", "vulnerability", "crash", "data loss",
+        "leak", "injection", "auth", "password", "corruption"
+    ]
+    lowered = text.lower()
+    return [term for term in risk_terms if term in lowered]
+
+def compute_confidence_score(summary, issues, suggestions, risks):
+    """Weighted heuristic for confidence and risk adjustment."""
     length_factor = len(summary) / 200
     balance = abs(count_bullets(issues) - count_bullets(suggestions))
-    score = 100 - (balance * 5) - (10 if "missing" in summary else 0)
-    return max(30, min(95, int(score * (1 if length_factor > 0.8 else 0.8))))
+
+    base_score = 100 - (balance * 5) - (10 if "missing" in summary.lower() else 0)
+    if length_factor < 0.5:
+        base_score -= 10
+
+    # Penalize for risk presence
+    if risks:
+        base_score -= len(risks) * 5
+        base_score = min(base_score, 80)
+
+    return max(30, min(95, int(base_score)))
 
 def main():
     review_path = "artifacts/ai_review.md"
@@ -38,7 +56,8 @@ def main():
     # --- Analytics ---
     bullet_issues = count_bullets(issues)
     bullet_suggestions = count_bullets(suggestions)
-    score = compute_confidence_score(summary, issues, suggestions)
+    risks = detect_high_risk_terms(review_text)
+    score = compute_confidence_score(summary, issues, suggestions, risks)
 
     summary_data = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -46,6 +65,7 @@ def main():
         "potential_issues": bullet_issues,
         "suggestions": bullet_suggestions,
         "confidence_score": score,
+        "high_risk_terms": risks,
     }
 
     # --- Save summary ---
@@ -53,12 +73,12 @@ def main():
         json.dump(summary_data, jf, indent=2)
     print("[INFO] Saved structured summary to review_summary.json")
 
-    # --- Generate Markdown summary ---
-    md_content = f"""##  AI Review Summary
+    md_content = f"""## AI Review Summary
 
 **Confidence Score:** {score}/100  
 **Detected Issues:** {bullet_issues}  
-**Suggestions:** {bullet_suggestions}
+**Suggestions:** {bullet_suggestions}  
+**High-Risk Keywords:** {', '.join(risks) if risks else 'None'}
 
 ### Summary
 {summary}
