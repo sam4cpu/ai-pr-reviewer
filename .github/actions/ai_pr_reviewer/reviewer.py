@@ -105,6 +105,9 @@ def main():
     title = pr_data.get("title", "")
     body = pr_data.get("body", "")
     print(f"[INFO] Fetched PR: {title}")
+    category = categorize_pr(title, body, diff_content="")
+    print(f"[INFO] Detected PR category: {category}")
+
 
 def categorize_pr(title, body, diff_content):
     """Categorize PRs to tailor AI feedback."""
@@ -136,7 +139,7 @@ def categorize_pr(title, body, diff_content):
     client = OpenAI(api_key=openai_key) if openai_key else None
 
     prompt = f"""
-You are a senior software engineer reviewing a pull request.
+You are a senior software engineer reviewing a **{category}** pull request.
 
 **PR Title:** {title}
 **Description:** {body}
