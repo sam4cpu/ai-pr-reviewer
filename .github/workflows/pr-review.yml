@@ -22,7 +22,6 @@ jobs:
           cache: 'pip'
 
       - name: Cache dependencies
-        id: cache-deps
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -30,13 +29,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
-          echo "[INFO] Installing dependencies..."
           pip install --upgrade pip
           pip install openai requests
 
-      - name: Fetch pull request diff
+      - name: Fetch PR diff
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -44,13 +42,6 @@ jobs:
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             ${{ github.event.pull_request.url }} > pr_diff.patch
-
-          if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] No diff file generated. Exiting gracefully."
-            exit 0
-          fi
-
-          echo "[SUCCESS] Diff saved to pr_diff.patch"
 
       - name: Run AI PR Reviewer
         env:
@@ -71,33 +62,13 @@ jobs:
             review_metadata.json
           if-no-files-found: ignore
 
-      - name: Log completion summary
-        run: |
-          echo "[SUMMARY] AI PR Review workflow completed successfully."
-          echo "[SUMMARY] Artifacts uploaded for post-analysis."
-          echo "[SUMMARY] Proceeding to summarization phase."
-
   summarize_reviews:
     runs-on: ubuntu-latest
     needs: ai_pr_review
-    permissions:
-      pull-requests: write
-      contents: read
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download review artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ai_pr_review_artifacts
-          path: ./artifacts
-
       - name: Generate PR review summary
-        run: |
-          echo "[INFO] Generating AI PR Review summary..."
-          python .github/actions/ai_pr_reviewer/generate_summary.py
-
+        run: python .github/actions/ai_pr_reviewer/generate_summary.py
       - name: Upload summary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -106,20 +77,16 @@ jobs:
             review_summary.json
             review_summary.md
 
-      - name: Post summary comment to PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          echo "[INFO] Posting summary to PR..."
-          SUMMARY=$(cat review_summary.md)
-          PAYLOAD=$(jq -n --arg body "### AI Review Summary\n\n$SUMMARY" '{body: $body}')
-          curl -s -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
-            -d "$PAYLOAD"
-
-          echo "[SUCCESS] Summary successfully posted to PR!"
+  analyze_trends:
+    runs-on: ubuntu-latest
+    needs: summarize_reviews
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyze Cross-PR Trends
+        run: python .github/actions/ai_pr_reviewer/analyze_trends.py
+      - name: Upload trend report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trend_report
+          path: trend_report.md
 
