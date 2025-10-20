@@ -80,13 +80,38 @@ jobs:
   analyze_trends:
     runs-on: ubuntu-latest
     needs: summarize_reviews
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
       - name: Analyze Cross-PR Trends
         run: python .github/actions/ai_pr_reviewer/analyze_trends.py
+
       - name: Upload trend report
         uses: actions/upload-artifact@v4
         with:
           name: trend_report
           path: trend_report.md
+
+      - name: Post Trend Summary as PR Comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "[INFO] Posting trend summary as PR comment..."
+          if [ -f trend_report.md ]; then
+            COMMENT_BODY=$(cat trend_report.md)
+            curl -sSL \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\": \"### 📊 AI PR Review Trends\\n\\n$COMMENT_BODY\"}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+            echo "[SUCCESS] Trend summary posted to PR #${PR_NUMBER}"
+          else
+            echo "[WARN] No trend report found to post."
+          fi
+
 
