@@ -6,11 +6,6 @@ import re
 from datetime import datetime
 from openai import OpenAI, APIError, RateLimitError
 
-
-# -----------------------------
-#  Utility + AI Review Functions
-# -----------------------------
-
 def analyze_feedback_priority(ai_feedback: str) -> dict:
     """Extract priority score and detect critical issues."""
     feedback_lower = ai_feedback.lower()
