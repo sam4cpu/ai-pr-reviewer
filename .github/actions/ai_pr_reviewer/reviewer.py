@@ -2,8 +2,36 @@ import os
 import requests
 import time
 import json
+import re
 from datetime import datetime
 from openai import OpenAI, APIError, RateLimitError
+
+
+# -----------------------------
+#  Utility + AI Review Functions
+# -----------------------------
+
+def analyze_feedback_priority(ai_feedback: str) -> dict:
+    """Extract priority score and detect critical issues."""
+    feedback_lower = ai_feedback.lower()
+
+    critical_keywords = [
+        "security", "vulnerability", "data loss",
+        "crash", "injection", "auth", "password"
+    ]
+    high_risk_detected = any(k in feedback_lower for k in critical_keywords)
+
+    # Count bullet points
+    issue_count = len(re.findall(r"- ", ai_feedback))
+    base_score = min(100, issue_count * 10)
+    if high_risk_detected:
+        base_score = max(80, base_score + 20)
+
+    return {
+        "issue_count": issue_count,
+        "high_risk": high_risk_detected,
+        "priority_score": base_score
+    }
 
 
 def request_with_retry(client, messages, model="gpt-4o-mini", max_retries=3):
@@ -63,11 +91,7 @@ def gather_repo_context(base_path="."):
                         content = f.read()[:1000]
                     context_snippets.append(f"### {test_path}\n{content}")
 
-    if not context_snippets:
-        print("[INFO] No contextual files found.")
-    else:
-        print(f"[INFO] Loaded context from {len(context_snippets)} files.")
-
+    print(f"[INFO] Loaded context from {len(context_snippets)} files." if context_snippets else "[INFO] No contextual files found.")
     return "\n\n".join(context_snippets)
 
 
@@ -82,31 +106,6 @@ def save_metadata(mode, success, feedback_path="ai_review.md"):
     with open("review_metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
     print("[INFO] Metadata saved to review_metadata.json")
-
-
-def main():
-    repo = os.getenv("GITHUB_REPOSITORY")
-    pr_number = os.getenv("PR_NUMBER")
-    token = os.getenv("GITHUB_TOKEN")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
-    if not all([repo, pr_number, token]):
-        print("[FATAL] Missing one or more required environment variables.")
-        return
-
-    print(f"[START] Running AI PR Review for {repo} (PR #{pr_number})...")
-
-    mode = "LIVE" if openai_key else "MOCK"
-    print(f"[INFO] Mode: {mode} ({'using OpenAI API' if openai_key else 'simulation mode'})")
-
-    headers = {"Authorization": f"Bearer {token}"}
-    pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
-    pr_data = requests.get(pr_url, headers=headers).json()
-    title = pr_data.get("title", "")
-    body = pr_data.get("body", "")
-    print(f"[INFO] Fetched PR: {title}")
-    category = categorize_pr(title, body, diff_content="")
-    print(f"[INFO] Detected PR category: {category}")
 
 
 def categorize_pr(title, body, diff_content):
@@ -127,17 +126,45 @@ def categorize_pr(title, body, diff_content):
         return "general change"
 
 
+# -----------------------------
+#  Main AI Review Logic
+# -----------------------------
+
+def main():
+    repo = os.getenv("GITHUB_REPOSITORY")
+    pr_number = os.getenv("PR_NUMBER")
+    token = os.getenv("GITHUB_TOKEN")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    if not all([repo, pr_number, token]):
+        print("[FATAL] Missing one or more required environment variables.")
+        return
+
+    print(f"[START] Running AI PR Review for {repo} (PR #{pr_number})...")
+
+    mode = "LIVE" if openai_key else "MOCK"
+    print(f"[INFO] Mode: {mode}")
+
+    # --- Fetch PR metadata ---
+    headers = {"Authorization": f"Bearer {token}"}
+    pr_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+    pr_data = requests.get(pr_url, headers=headers).json()
+    title = pr_data.get("title", "")
+    body = pr_data.get("body", "")
+    print(f"[INFO] Fetched PR: {title}")
+
+    # --- Load diff and context ---
     diff_content = read_diff_file()
     if not diff_content:
         print("[WARN] No diff to analyze, exiting.")
         save_metadata(mode, success=False)
         return
 
+    category = categorize_pr(title, body, diff_content)
     repo_context = gather_repo_context()
-    print("[INFO] Loaded repository context for review.")
-
     client = OpenAI(api_key=openai_key) if openai_key else None
 
+    # --- Build AI Prompt ---
     prompt = f"""
 You are a senior software engineer reviewing a **{category}** pull request.
 
@@ -150,8 +177,8 @@ You are a senior software engineer reviewing a **{category}** pull request.
 ### Code Diff
 {diff_content}
 
-Provide structured markdown feedback that considers both
-the code diff and the overall repository context.
+Provide structured markdown feedback considering both
+the code diff and overall repository context.
 
 ## AI Code Review Feedback
 
@@ -170,6 +197,7 @@ the code diff and the overall repository context.
 
     print("[INFO] Sending diff + repo context to OpenAI for analysis...")
 
+    # --- Run Review ---
     try:
         ai_feedback = None
 
@@ -201,21 +229,27 @@ the code diff and the overall repository context.
 - Verify retry logic and mock handling.
 """
 
+        # --- Output and Post ---
         print("\n[OUTPUT] AI Review Feedback:\n")
         print(ai_feedback)
+
+        analysis = analyze_feedback_priority(ai_feedback)
+        print(f"[INFO] AI Review Priority Score: {analysis['priority_score']}/100")
+        if analysis["high_risk"]:
+            print("[ALERT] High-risk issues detected in PR feedback.")
 
         with open("ai_review.md", "w", encoding="utf-8") as f:
             f.write(ai_feedback)
         print("[INFO] Saved AI feedback to ai_review.md")
 
+        # Post to PR
         print("[INFO] Posting AI feedback as a GitHub PR comment...")
         comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-        comment_headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-        comment_body = {"body": f"### AI PR Review\n\n{ai_feedback}"}
-        response = requests.post(comment_url, headers=comment_headers, json=comment_body)
+        response = requests.post(
+            comment_url,
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
+            json={"body": f"### 🤖 AI PR Review\n\n{ai_feedback}"}
+        )
 
         if response.status_code == 201:
             print("[SUCCESS] Successfully posted comment to PR!")
@@ -235,6 +269,7 @@ the code diff and the overall repository context.
 
 if __name__ == "__main__":
     main()
+
 
 
 
