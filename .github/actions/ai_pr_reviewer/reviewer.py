@@ -238,7 +238,7 @@ the code diff and overall repository context.
         response = requests.post(
             comment_url,
             headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
-            json={"body": f"### 🤖 AI PR Review\n\n{ai_feedback}"}
+            json={"body": f"### AI PR Review\n\n{ai_feedback}"}
         )
 
         if response.status_code == 201:
