@@ -79,7 +79,7 @@ jobs:
 
   summarize_reviews:
     runs-on: ubuntu-latest
-    needs: ai_pr_review  # waits for the AI review job
+    needs: ai_pr_review  
     steps:
       - uses: actions/checkout@v4
 
