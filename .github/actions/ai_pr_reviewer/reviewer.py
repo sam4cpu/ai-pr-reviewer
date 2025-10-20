@@ -5,6 +5,8 @@ import json
 import re
 from datetime import datetime
 from openai import OpenAI, APIError, RateLimitError
+from .review_memory import update_history 
+from review_memory import update_history
 
 def analyze_feedback_priority(ai_feedback: str) -> dict:
     """Extract priority score and detect critical issues."""
@@ -254,9 +256,7 @@ the code diff and overall repository context.
 
     print(f"\n[SUMMARY] Review complete — Mode: {mode}")
     print("[SUMMARY] Feedback saved to ai_review.md")
-    print("[SUMMARY] Metadata saved to review_metadata.json")
-
-from .review_memory import update_history   
+    print("[SUMMARY] Metadata saved to review_metadata.json")  
 
 content_preview = diff_content[:1000]  # small slice to hash & detect duplicates
 metrics = update_history(
@@ -270,7 +270,22 @@ metrics = update_history(
 )
 print(f"[INFO] History metrics after update: avg_score={metrics.get('avg_priority_score')}, total={metrics.get('total_reviews')}")
 
-
+# --- Update AI review memory (Day 11 integration) ---
+try:
+    content_preview = diff_content[:1000] if 'diff_content' in locals() else ""
+    metrics = update_history(
+        pr_number=str(pr_number),
+        title=title,
+        category=category,
+        priority_score=analysis.get("priority_score", 0),
+        high_risk=analysis.get("high_risk", False),
+        content_preview=content_preview,
+        extra={"ai_mode": mode}
+    )
+    print(f"[INFO] Review memory updated. Total={metrics.get('total_reviews')}, "
+          f"Avg Score={metrics.get('avg_priority_score')}, Trend={metrics.get('recent_trend')}")
+except Exception as e:
+    print(f"[WARN] Failed to update review memory: {e}")
 
 if __name__ == "__main__":
     main()
