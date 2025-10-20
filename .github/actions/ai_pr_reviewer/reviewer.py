@@ -120,11 +120,6 @@ def categorize_pr(title, body, diff_content):
     else:
         return "general change"
 
-
-# -----------------------------
-#  Main AI Review Logic
-# -----------------------------
-
 def main():
     repo = os.getenv("GITHUB_REPOSITORY")
     pr_number = os.getenv("PR_NUMBER")
@@ -260,6 +255,21 @@ the code diff and overall repository context.
     print(f"\n[SUMMARY] Review complete — Mode: {mode}")
     print("[SUMMARY] Feedback saved to ai_review.md")
     print("[SUMMARY] Metadata saved to review_metadata.json")
+
+from .review_memory import update_history   
+
+content_preview = diff_content[:1000]  # small slice to hash & detect duplicates
+metrics = update_history(
+    pr_number=str(pr_number),
+    title=title,
+    category=category,
+    priority_score=analysis.get("priority_score", 0),
+    high_risk=analysis.get("high_risk", False),
+    content_preview=content_preview,
+    extra={"ai_mode": mode}
+)
+print(f"[INFO] History metrics after update: avg_score={metrics.get('avg_priority_score')}, total={metrics.get('total_reviews')}")
+
 
 
 if __name__ == "__main__":
