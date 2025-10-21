@@ -50,7 +50,7 @@ jobs:
           fi
           echo "[SUCCESS] Diff saved to pr_diff.patch"
 
-      - name: Run Day 13 Adaptive AI PR Reviewer
+      - name: Run Adaptive AI PR Reviewer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -60,7 +60,7 @@ jobs:
           echo "[START] Running Intelligent Self-Evaluating AI PR Reviewer..."
           python .github/actions/ai_pr_reviewer/reviewer.py
 
-      - name: Upload AI review artifacts (Day 13)
+      - name: Upload AI review artifacts 
         uses: actions/upload-artifact@v4
         with:
           name: ai-review-data
@@ -71,11 +71,10 @@ jobs:
             review_history.json
             ai_adaptive_log.json
 
-      - name: Log completion summary
+      - name: Log Completion Summary
         run: |
-          echo "[SUMMARY] Day 13 Adaptive + Self-Evaluating AI PR Review completed."
+          echo "[SUMMARY] Adaptive + Self-Evaluation pipeline complete."
           echo "[SUMMARY] Review artifacts (including ai_self_eval.json) uploaded."
-
 
   summarize_reviews:
     runs-on: ubuntu-latest
