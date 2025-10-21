@@ -10,6 +10,7 @@ Day 12: Full self-contained adaptive AI PR reviewer (reviewer.py)
 """
 
 import os
+import requests
 import json
 import time
 import hashlib
@@ -259,6 +260,22 @@ def save_metadata(mode, success, path=METADATA_PATH):
     }
     safe_json_save(path, payload)
     print(f"[INFO] Saved metadata to {path}")
+
+def categorize_pr(title, body, diff_content):
+    """Categorize PRs for context-aware review tone."""
+    text = f"{title} {body} {diff_content}".lower()
+    if any(word in text for word in ["fix", "bug", "error", "issue"]):
+        return "bug fix"
+    elif any(word in text for word in ["add", "feature", "implement", "new"]):
+        return "feature addition"
+    elif any(word in text for word in ["refactor", "cleanup", "optimize", "performance"]):
+        return "refactor"
+    elif any(word in text for word in ["doc", "readme", "typo"]):
+        return "documentation update"
+    elif any(word in text for word in ["test", "pytest", "unittest"]):
+        return "test update"
+    else:
+        return "general change"
 
 # -------------------------
 # Main
