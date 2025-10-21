@@ -63,13 +63,13 @@ jobs:
       - name: Upload AI review artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ai_pr_review_artifacts
-          path: |
-            ai_review.md
-            review_metadata.json
-            ai_adaptive_log.json
-            review_history.json
-          if-no-files-found: ignore
+           name: ai-review-data
+           path: |
+               ai_review.md
+               review_metadata.json
+               review_history.json
+               ai_adaptive_log.json
+
 
   summarize_reviews:
     runs-on: ubuntu-latest
