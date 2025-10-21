@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Day 13 — Full Research Build: Self-Evaluation + Code Quality Metrics
+Full Research Build: Self-Evaluation + Code Quality Metrics
 Replace previous reviewer.py with this file.
 
 Produces additional artifact: ai_self_eval.json
@@ -421,7 +421,7 @@ Produce markdown review with sections:
         with open(FEEDBACK_PATH, "w", encoding="utf-8") as f:
             f.write(ai_feedback)
             f.write("\n\n---\n\n")
-            f.write("## 🤖 AI Self-Evaluation\n")
+            f.write("##  AI Self-Evaluation\n")
             f.write(f"- **AI Confidence:** {self_eval['ai_confidence']}/1.0\n")
             f.write(f"- **AI Self Score:** {ai_self_score}/1.0\n")
             f.write(f"- **Clarity:** {self_eval['clarity']}\n")
