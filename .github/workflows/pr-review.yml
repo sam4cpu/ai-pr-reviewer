@@ -157,7 +157,32 @@ jobs:
       - name: Log completion
         run: |
           echo "[SUMMARY] AI PR Reviewer (Day 13) — Adaptive + Self-Evaluation pipeline complete."
-          echo "[SUMMARY] Artifacts uploaded: review data, summary, trends, and self-evaluation."
+          echo "[SUMMARY] Artifacts uploaded: review data, summary, trends, and self-evaluation.
+ 
+  ai_self_evaluate:
+        runs-on: ubuntu-latest
+        needs: analyze_trends
+        permissions:
+          contents: write
+        steps:
+          - uses: actions/checkout@v4
+
+          - name: Run AI Self-Evaluation (Learning from History)
+            env:
+              OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            run: |
+              echo "[START] Running AI Self-Evaluation Cycle..."
+              python .github/actions/ai_pr_reviewer/self_improvement.py
+
+          - name: Upload improvement artifacts
+            uses: actions/upload-artifact@v4
+            with:
+              name: ai-self-eval
+              path: |
+                improvement_plan.json
+                quality_report.md
+                self_eval_metrics.json
+
 
 
 
