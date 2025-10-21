@@ -164,8 +164,16 @@ def main():
           f"{adaptive_context['depth']} depth, caution={adaptive_context['caution_level']}")
 
     # --- Build AI Prompt ---
-    prompt = f"""
-You are a senior software engineer reviewing a **{category}** pull request.
+        prompt = f"""
+You are a senior software engineer performing an **adaptive AI code review**.
+
+Your current adaptive mode:
+- Tone: {adaptive_context['tone']}
+- Depth: {adaptive_context['depth']}
+- Caution Level: {adaptive_context['caution_level']}
+- Trend Summary: {adaptive_context['trend_summary']}
+
+You are reviewing a **{category}** pull request.
 
 **PR Title:** {title}
 **Description:** {body}
@@ -176,22 +184,24 @@ You are a senior software engineer reviewing a **{category}** pull request.
 ### Code Diff
 {diff_content}
 
-Provide structured markdown feedback considering both
-the code diff and overall repository context.
+Provide a structured and thoughtful markdown review following these rules:
+- Adjust tone and depth based on the above adaptive context.
+- If caution level is high, emphasize correctness, testing, and security.
+- If tone is concise, focus on actionable, summarized insights.
 
 ## AI Code Review Feedback
 
 ### Summary
-- Summarize what this PR changes.
+- Briefly summarize what this PR changes.
 
 ### Potential Issues
-- List possible bugs, logic errors, or risky design choices.
+- List possible bugs, design flaws, or risks.
 
 ### Suggestions
-- Suggest improvements or refactors.
+- Recommend improvements or refactors.
 
 ### Testing Recommendations
-- Recommend relevant pytest tests or edge cases.
+- Suggest new tests or validation steps.
 """
 
     print("[INFO] Sending diff + repo context to OpenAI for analysis...")
