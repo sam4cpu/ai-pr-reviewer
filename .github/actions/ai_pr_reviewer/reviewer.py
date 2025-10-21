@@ -7,6 +7,7 @@ from datetime import datetime
 from openai import OpenAI, APIError, RateLimitError
 from .review_memory import update_history 
 from review_memory import update_history
+from adaptive_engine import analyze_review_history, log_adaptation
 
 def analyze_feedback_priority(ai_feedback: str) -> dict:
     """Extract priority score and detect critical issues."""
@@ -155,6 +156,13 @@ def main():
     category = categorize_pr(title, body, diff_content)
     repo_context = gather_repo_context()
     client = OpenAI(api_key=openai_key) if openai_key else None
+
+    adaptive_context = analyze_review_history()
+    log_adaptation(adaptive_context)
+
+    print(f"[INFO] Adaptive AI mode: {adaptive_context['tone']} tone, "
+          f"{adaptive_context['depth']} depth, caution={adaptive_context['caution_level']}")
+
 
     # --- Build AI Prompt ---
     prompt = f"""
