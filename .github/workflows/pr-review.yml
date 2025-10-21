@@ -1,4 +1,4 @@
-name: AI PR Reviewer (Self-Evaluating Adaptive Mode)
+name: AI PR Reviewer (Continuous Learning Mode)
 
 on:
   pull_request:
@@ -33,7 +33,7 @@ jobs:
         run: |
           echo "[INFO] Installing dependencies..."
           pip install --upgrade pip
-          pip install openai requests
+          pip install openai requests numpy pandas
 
       - name: Fetch PR diff
         env:
@@ -57,10 +57,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running Intelligent Self-Evaluating AI PR Reviewer..."
+          echo "[START] Running Continuous-Learning AI PR Reviewer..."
           python .github/actions/ai_pr_reviewer/reviewer.py
 
-      - name: Upload AI review artifacts 
+      - name: Upload AI review artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ai-review-data
@@ -71,20 +71,18 @@ jobs:
             review_history.json
             ai_adaptive_log.json
 
-      - name: Log Completion Summary
+      - name: Log completion
         run: |
-          echo "[SUMMARY] Adaptive + Self-Evaluation pipeline complete."
-          echo "[SUMMARY] Review artifacts (including ai_self_eval.json) uploaded."
+          echo "[SUMMARY] Day 14 — Adaptive Review phase complete."
+          echo "[INFO] Proceeding to summarization and trend analysis."
 
   summarize_reviews:
     runs-on: ubuntu-latest
     needs: ai_pr_review
     steps:
       - uses: actions/checkout@v4
-
       - name: Generate PR review summary
         run: python .github/actions/ai_pr_reviewer/generate_summary.py
-
       - name: Upload summary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -92,7 +90,6 @@ jobs:
           path: |
             review_summary.json
             review_summary.md
-
 
   analyze_trends:
     runs-on: ubuntu-latest
@@ -103,9 +100,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Analyze cross-PR trends (adaptive + self-eval aware)
+      - name: Analyze cross-PR trends (Continuous Learning)
         run: |
-          echo "[INFO] Analyzing trends across PRs (Day 13 mode)..."
+          echo "[INFO] Analyzing historical AI PR data..."
           python .github/actions/ai_pr_reviewer/analyze_trends.py
           echo "[INFO] Trend analysis complete."
 
@@ -127,60 +124,67 @@ jobs:
             curl -sSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### AI PR Review Trends (Day 13 Self-Evaluating Mode)\\n\\n$COMMENT_BODY\"}" \
+              -d "{\"body\": \"###  AI PR Review Trends (Day 14 Continuous Learning)\\n\\n$COMMENT_BODY\"}" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Trend summary posted to PR #${PR_NUMBER}"
+            echo "[SUCCESS] Trend summary posted to PR."
           else
             echo "[WARN] No trend report found to post."
           fi
 
-      - name: Post AI Self-Evaluation Summary
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [ -f ai_self_eval.json ]; then
-            echo "[INFO] Posting self-evaluation summary..."
-            SUMMARY=$(jq -r '. | "AI Self Score: \(.ai_self_score) | Clarity: \(.clarity) | Actionability: \(.actionability) | CQI: \(.cqi)"' ai_self_eval.json)
-            curl -sSL \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### 🤖 AI Self-Evaluation Summary\\n\\n$SUMMARY\"}" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Self-evaluation summary posted to PR."
-          else
-            echo "[WARN] ai_self_eval.json not found."
-          fi
-
-      - name: Log completion
-        run: |
-          echo "[SUMMARY] AI PR Reviewer (Day 13) — Adaptive + Self-Evaluation pipeline complete."
-          echo "[SUMMARY] Artifacts uploaded: review data, summary, trends, and self-evaluation.
- 
   ai_self_evaluate:
-        runs-on: ubuntu-latest
-        needs: analyze_trends
-        permissions:
-          contents: write
-        steps:
-          - uses: actions/checkout@v4
+    runs-on: ubuntu-latest
+    needs: analyze_trends
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
-          - name: Run AI Self-Evaluation (Learning from History)
-            env:
-              OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            run: |
-              echo "[START] Running AI Self-Evaluation Cycle..."
-              python .github/actions/ai_pr_reviewer/self_improvement.py
+      - name: Run AI Self-Evaluation & Improvement Plan
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "[START] Running AI Self-Evaluation + Improvement Plan..."
+          python .github/actions/ai_pr_reviewer/self_improvement.py
 
-          - name: Upload improvement artifacts
-            uses: actions/upload-artifact@v4
-            with:
-              name: ai-self-eval
-              path: |
-                improvement_plan.json
-                quality_report.md
-                self_eval_metrics.json
+      - name: Upload improvement artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-self-eval
+          path: |
+            improvement_plan.json
+            quality_report.md
+            self_eval_metrics.json
+
+  ai_continuous_learning:
+    runs-on: ubuntu-latest
+    needs: ai_self_evaluate
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Execute Continuous Learning Cycle
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "[START] Continuous Learning phase..."
+          python .github/actions/ai_pr_reviewer/continuous_learning.py
+          echo "[SUCCESS] Adaptive weights updated using cross-PR intelligence."
+
+      - name: Upload Continuous Learning Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuous-learning
+          path: |
+            learning_weights.json
+            adaptive_memory.json
+            learning_log.md
+
+      - name: Log Final Completion
+        run: |
+          echo "[FINAL SUMMARY] AI PR Reviewer (Day 14 — Continuous Learning) pipeline complete."
+          echo "[INFO] Artifacts available: ai-review-data, review_summary, trend_report, ai-self-eval, continuous-learning."
+
 
 
 
