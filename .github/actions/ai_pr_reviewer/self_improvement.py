@@ -59,11 +59,11 @@ def generate_improvement_plan(metrics):
 def generate_quality_report(metrics, plan):
     """Generate a human-readable Markdown summary."""
     report = f"""
-# 🤖 AI Continuous Learning Report — Day 14
+# AI Continuous Learning Report 
 
 **Generated:** {datetime.utcnow().isoformat()}Z
 
-### 📊 Learning Metrics
+### Learning Metrics
 - Average Priority Score: **{metrics['avg_priority_score']}**
 - Clarity: **{metrics['clarity']}**
 - Actionability: **{metrics['actionability']}**
@@ -73,10 +73,10 @@ def generate_quality_report(metrics, plan):
 - High-Risk Flags: **{metrics['high_risk_count']}**
 - Total Reviews Processed: **{metrics['total_reviews']}**
 
-### 🧠 Improvement Plan
+###  Improvement Plan
 {chr(10).join(f"- {p}" for p in plan)}
 
-### 🔁 Next Steps
+###  Next Steps
 1. Apply improvement plan feedback in adaptive context generation.
 2. Compare new review cycles with this baseline.
 3. Save model deltas for Day 15 (Reinforcement Learning Feedback).
@@ -85,7 +85,7 @@ def generate_quality_report(metrics, plan):
 
 def run_continuous_learning():
     """Main Day 14 logic."""
-    print("[START] Running Continuous Learning Core ")
+    print("[START] Running Continuous Learning Core.. ")
 
     history = load_json("review_history.json", [])
     self_eval = load_json("ai_self_eval.json", {})
