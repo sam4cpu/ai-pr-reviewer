@@ -304,6 +304,22 @@ try:
 except Exception as e:
     print(f"[WARN] Failed to update review memory: {e}")
 
+    with open("review_history.json", "a+", encoding="utf-8") as f:
+        try:
+            f.seek(0)
+            history = json.load(f)
+        except:
+            history = []
+        history.append({
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "priority_score": analysis["priority_score"],
+            "high_risk": analysis["high_risk"],
+            "category": category
+        })
+        f.seek(0)
+        json.dump(history[-50:], f, indent=2)  # keep last 50
+
+
 if __name__ == "__main__":
     main()
 
