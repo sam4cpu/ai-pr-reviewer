@@ -163,7 +163,6 @@ def main():
     print(f"[INFO] Adaptive AI mode: {adaptive_context['tone']} tone, "
           f"{adaptive_context['depth']} depth, caution={adaptive_context['caution_level']}")
 
-
     # --- Build AI Prompt ---
     prompt = f"""
 You are a senior software engineer reviewing a **{category}** pull request.
