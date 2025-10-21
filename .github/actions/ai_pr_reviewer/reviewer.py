@@ -443,7 +443,7 @@ Provide structured markdown feedback with these sections:
     comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
     try:
         comment_body = {
-            "body": f"### 🤖 Adaptive AI PR Review\n\n{ai_feedback}\n\n**Priority Score:** {analysis.get('priority_score')}/100\n**Adaptive Tone:** {adaptive_settings['tone']} — {adaptive_settings['trend_summary']}"
+            "body": f"### Adaptive AI PR Review\n\n{ai_feedback}\n\n**Priority Score:** {analysis.get('priority_score')}/100\n**Adaptive Tone:** {adaptive_settings['tone']} — {adaptive_settings['trend_summary']}"
         }
         resp = requests.post(comment_url, headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}, json=comment_body, timeout=15)
         if resp.status_code == 201:
