@@ -1,4 +1,4 @@
-name: AI PR Reviewer
+name: AI PR Reviewer (Adaptive Mode)
 
 on:
   pull_request:
@@ -31,6 +31,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "[INFO] Installing dependencies..."
           pip install --upgrade pip
           pip install openai requests
 
@@ -43,14 +44,20 @@ jobs:
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             ${{ github.event.pull_request.url }} > pr_diff.patch
 
-      - name: Run AI PR Reviewer
+          if [ ! -s pr_diff.patch ]; then
+            echo "[WARN] No diff file generated. Check PR content or permissions."
+            exit 0
+          fi
+          echo "[SUCCESS] Diff saved to pr_diff.patch"
+
+      - name: Run Adaptive AI PR Reviewer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running AI PR Reviewer..."
+          echo "[START] Running Adaptive AI PR Reviewer..."
           python .github/actions/ai_pr_reviewer/reviewer.py
 
       - name: Upload AI review artifacts
@@ -60,6 +67,8 @@ jobs:
           path: |
             ai_review.md
             review_metadata.json
+            ai_adaptive_log.json
+            review_history.json
           if-no-files-found: ignore
 
   summarize_reviews:
@@ -67,8 +76,10 @@ jobs:
     needs: ai_pr_review
     steps:
       - uses: actions/checkout@v4
+
       - name: Generate PR review summary
         run: python .github/actions/ai_pr_reviewer/generate_summary.py
+
       - name: Upload summary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -86,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Analyze Cross-PR Trends
+      - name: Analyze cross-PR trends (adaptive mode)
         run: python .github/actions/ai_pr_reviewer/analyze_trends.py
 
       - name: Upload trend report
@@ -107,11 +118,17 @@ jobs:
             curl -sSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### 📊 AI PR Review Trends\\n\\n$COMMENT_BODY\"}" \
+              -d "{\"body\": \"### AI PR Review Trends (Adaptive Mode)\\n\\n$COMMENT_BODY\"}" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
             echo "[SUCCESS] Trend summary posted to PR #${PR_NUMBER}"
           else
             echo "[WARN] No trend report found to post."
           fi
+
+      - name: Log completion
+        run: |
+          echo "[SUMMARY] AI PR Review (Adaptive Mode) completed successfully."
+          echo "[SUMMARY] Adaptive and trend artifacts uploaded for analysis."
+
 
 
