@@ -182,7 +182,7 @@ jobs:
 
       - name: Log Final Completion
         run: |
-          echo "[FINAL SUMMARY] AI PR Reviewer (Day 14 — Continuous Learning) pipeline complete."
+          echo "[FINAL SUMMARY] AI PR Reviewer (Continuous Learning) pipeline complete."
           echo "[INFO] Artifacts available: ai-review-data, review_summary, trend_report, ai-self-eval, continuous-learning."
 
 
