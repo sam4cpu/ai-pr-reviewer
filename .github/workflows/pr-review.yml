@@ -160,7 +160,7 @@ jobs:
     needs: ai_self_evaluate
     steps:
       - uses: actions/checkout@v4
-      - name: Run Continuous Learning Core (Day 14)
+      - name: Run Continuous Learning Core 
         run: python .github/actions/ai_pr_reviewer/self_improvement.py
       - name: Upload learning artifacts
         uses: actions/upload-artifact@v4
