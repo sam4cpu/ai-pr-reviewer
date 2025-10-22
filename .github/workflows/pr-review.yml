@@ -1,4 +1,4 @@
-name: AI PR Reviewer (Continuous Learning Mode)
+name: AI PR Reviewer (Reinforcement & Adaptive Tuning Mode)
 
 on:
   pull_request:
@@ -10,30 +10,17 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install dependencies
         run: |
-          echo "[INFO] Installing dependencies..."
           pip install --upgrade pip
-          pip install openai requests numpy pandas
+          pip install openai requests numpy pandas scikit-learn
 
       - name: Fetch PR diff
         env:
@@ -43,12 +30,10 @@ jobs:
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             ${{ github.event.pull_request.url }} > pr_diff.patch
-
           if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] No diff file generated. Check PR content or permissions."
+            echo "[WARN] Empty diff file — skipping."
             exit 0
           fi
-          echo "[SUCCESS] Diff saved to pr_diff.patch"
 
       - name: Run Adaptive AI PR Reviewer
         env:
@@ -57,10 +42,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running Continuous-Learning AI PR Reviewer..."
+          echo "[START] Running Reinforcement-Ready Reviewer (Day 15)..."
           python .github/actions/ai_pr_reviewer/reviewer.py
 
-      - name: Upload AI review artifacts
+      - name: Upload review artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ai-review-data
@@ -71,20 +56,13 @@ jobs:
             review_history.json
             ai_adaptive_log.json
 
-      - name: Log completion
-        run: |
-          echo "[SUMMARY] Day 14 — Adaptive Review phase complete."
-          echo "[INFO] Proceeding to summarization and trend analysis."
-
   summarize_reviews:
     runs-on: ubuntu-latest
     needs: ai_pr_review
     steps:
       - uses: actions/checkout@v4
-      - name: Generate PR review summary
-        run: python .github/actions/ai_pr_reviewer/generate_summary.py
-      - name: Upload summary artifact
-        uses: actions/upload-artifact@v4
+      - run: python .github/actions/ai_pr_reviewer/generate_summary.py
+      - uses: actions/upload-artifact@v4
         with:
           name: review_summary
           path: |
@@ -99,36 +77,25 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Analyze cross-PR trends (Continuous Learning)
-        run: |
-          echo "[INFO] Analyzing historical AI PR data..."
-          python .github/actions/ai_pr_reviewer/analyze_trends.py
-          echo "[INFO] Trend analysis complete."
-
-      - name: Upload trend report
-        uses: actions/upload-artifact@v4
+      - name: Analyze cross-PR trends
+        run: python .github/actions/ai_pr_reviewer/analyze_trends.py
+      - uses: actions/upload-artifact@v4
         with:
           name: trend_report
           path: trend_report.md
-
-      - name: Post Trend Summary as PR Comment
+      - name: Post Trend Summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "[INFO] Posting trend summary as PR comment..."
           if [ -f trend_report.md ]; then
             COMMENT_BODY=$(cat trend_report.md)
             curl -sSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"###  AI PR Review Trends (Day 14 Continuous Learning)\\n\\n$COMMENT_BODY\"}" \
+              -d "{\"body\": \"### 📈 AI PR Review Trends (Reinforcement Mode)\\n\\n$COMMENT_BODY\"}" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Trend summary posted to PR."
-          else
-            echo "[WARN] No trend report found to post."
           fi
 
   ai_self_evaluate:
@@ -138,38 +105,19 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run AI Self-Evaluation & Improvement Plan
+      - name: Run AI Self-Evaluation Cycle
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          echo "[START] Running AI Self-Evaluation + Improvement Plan..."
-          python .github/actions/ai_pr_reviewer/self_improvement.py
-
-      - name: Upload improvement artifacts
-        uses: actions/upload-artifact@v4
+        run: python .github/actions/ai_pr_reviewer/self_improvement.py
+      - uses: actions/upload-artifact@v4
         with:
           name: ai-self-eval
           path: |
             improvement_plan.json
             quality_report.md
             self_eval_metrics.json
-      
-  continuous_learning:
-    runs-on: ubuntu-latest
-    needs: ai_self_evaluate
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Continuous Learning Core 
-        run: python .github/actions/ai_pr_reviewer/self_improvement.py
-      - name: Upload learning artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: continuous-learning
-          path: learning_outputs/
 
-
-  ai_continuous_learning:
+  ai_reinforcement_learning:
     runs-on: ubuntu-latest
     needs: ai_self_evaluate
     permissions:
@@ -177,29 +125,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Execute Continuous Learning Cycle
+      - name: Download previous context
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-self-eval
+          path: reinforcement_inputs/
+
+      - name: Run Reinforcement Learning Optimizer
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Continuous Learning phase..."
-          python .github/actions/ai_pr_reviewer/continuous_learning.py
-          echo "[SUCCESS] Adaptive weights updated using cross-PR intelligence."
+          echo "[START] Executing Reinforcement Cycle..."
+          python .github/actions/ai_pr_reviewer/reinforcement_tuner.py
+          echo "[SUCCESS] Reinforcement weights adjusted dynamically."
 
-      - name: Upload Continuous Learning Results
+      - name: Upload reinforcement artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: continuous-learning
+          name: ai-reinforcement
           path: |
-            learning_weights.json
-            adaptive_memory.json
-            learning_log.md
+            reward_matrix.json
+            reinforcement_log.md
+            adaptive_weights.json
+
+      - name: Post Reinforcement Summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f reward_matrix.json ]; then
+            REWARD_SCORE=$(jq -r '.overall_reward_score' reward_matrix.json)
+            STABILITY=$(jq -r '.stability_factor' reward_matrix.json)
+            COMMENT="### Reinforcement Learning Summary (Day 15)\n\n**Reward Score:** $REWARD_SCORE\n**Stability:** $STABILITY\n**Mode:** Adaptive Tuning\n\n> The reviewer has updated its internal confidence weights based on prior review accuracy and self-evaluation scores."
+            curl -sSL \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\": \"$COMMENT\"}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+            echo "[SUCCESS] Reinforcement summary posted."
+          fi
 
       - name: Log Final Completion
         run: |
-          echo "[FINAL SUMMARY] AI PR Reviewer (Continuous Learning) pipeline complete."
-          echo "[INFO] Artifacts available: ai-review-data, review_summary, trend_report, ai-self-eval, continuous-learning."
-
-
+          echo "[FINAL SUMMARY] AI PR Reviewer — Reinforcement & Adaptive Tuning complete."
+          echo "[INFO] Artifacts available: review data, trends, self-eval, reinforcement weights."
 
 
 
