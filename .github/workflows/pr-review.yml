@@ -171,6 +171,53 @@ jobs:
           echo "[FINAL SUMMARY] AI PR Reviewer — Reinforcement & Adaptive Tuning complete."
           echo "[INFO] Artifacts available: review data, trends, self-eval, reinforcement weights."
 
+  finalize_reinforcement_cycle:
+    runs-on: ubuntu-latest
+    needs: ai_reinforcement_learning
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Final Adaptive Weight Consolidation
+        run: |
+          echo "[START] Consolidating reinforcement learning weights..."
+          python .github/actions/ai_pr_reviewer/reinforcement_tuner.py
+          echo "[INFO] Final adaptive weights tuned successfully."
+
+      - name: Upload Final Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-reinforcement-report
+          path: |
+            adaptive_weights.json
+            reinforcement_report.md
+
+      - name: Post Final Summary to PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f reinforcement_report.md ]; then
+            FINAL_COMMENT=$(cat reinforcement_report.md)
+            curl -sSL \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\": \"### Final Reinforcement Summary (Day 15 Complete)\\n\\n$FINAL_COMMENT\\n\\n Continuous adaptive learning cycle finished successfully.\"}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+            echo "[SUCCESS] Final reinforcement summary posted to PR."
+          else
+            echo "[WARN] No reinforcement report found to post."
+          fi
+
+      - name: Workflow Completion Log
+        run: |
+          echo "[FINAL LOG] Reinforcement & Adaptive Tuning fully complete."
+          echo "[NEXT] Prepare for Autonomous Networked Reviewer Ecosystem."
+
+
 
 
 
