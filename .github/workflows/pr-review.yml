@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install openai requests numpy pandas scikit-learn
+          pip install openai requests numpy pandas scikit-learn matplotlib
 
       - name: Fetch PR diff
         env:
