@@ -217,6 +217,69 @@ jobs:
           echo "[FINAL LOG] Reinforcement & Adaptive Tuning fully complete."
           echo "[NEXT] Prepare for Autonomous Networked Reviewer Ecosystem."
 
+  ai_network_sync:
+    runs-on: ubuntu-latest
+    needs: finalize_reinforcement_cycle
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Previous Reinforcement Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: final-reinforcement-report
+          path: network_sync_inputs/
+
+      - name: Initialize Network Knowledge Core
+        run: |
+          echo "[START] Initializing Networked Knowledge Core..."
+          mkdir -p global_knowledge
+          python .github/actions/ai_pr_reviewer/network_core.py
+          echo "[INFO] Global knowledge base initialized."
+
+      - name: Aggregate Cross-Repository Intelligence
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "[INFO] Aggregating intelligence from connected repos..."
+          python .github/actions/ai_pr_reviewer/network_aggregator.py
+          echo "[SUCCESS] Global intelligence update complete."
+
+      - name: Upload Global Intelligence Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-network-intelligence
+          path: |
+            global_knowledge/global_summary.json
+            global_knowledge/adaptive_network_weights.json
+            global_knowledge/network_log.md
+
+      - name: Post Global Sync Summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f global_knowledge/network_log.md ]; then
+            NETWORK_LOG=$(cat global_knowledge/network_log.md)
+            curl -sSL \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\": \"### AI Network Sync Complete (Day 16)\\n\\n$NETWORK_LOG\\n\\n This repository is now part of the autonomous reviewer ecosystem.\"}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+            echo "[SUCCESS] Network sync summary posted to PR."
+          else
+            echo "[WARN] No network log found to post."
+          fi
+
+      - name: Log Finalization
+        run: |
+          echo "[FINAL SUMMARY] Autonomous Networked Reviewer Ecosystem complete."
+          echo "[INFO] This repository now participates in a global AI learning network."
+
+
 
 
 
