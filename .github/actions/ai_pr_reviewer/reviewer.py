@@ -449,6 +449,32 @@ Produce markdown review with sections:
         print(f"[INFO] Updated history: total={metrics.get('total_reviews')}, avg_score={metrics.get('avg_priority_score')}")
     except Exception as e:
         print(f"[WARN] update_history failed: {e}")
+        
+    # --- Reinforcement logging for adaptive learning ---
+    try:
+        reward_log = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "pr_number": pr_number,
+            "priority_score": analysis.get("priority_score", 0),
+            "high_risk": analysis.get("high_risk", False),
+            "clarity_score": len(ai_feedback) / 500,  # proxy metric for verbosity
+            "actionability": analysis.get("issue_count", 0) / 5,  # proxy for actionable suggestions
+            "category": category,
+            "adaptive_mode": adaptive_context,
+        }
+
+        with open("reward_log.json", "a+", encoding="utf-8") as f:
+            try:
+                f.seek(0)
+                logs = json.load(f)
+            except:
+                logs = []
+            logs.append(reward_log)
+            f.seek(0)
+            json.dump(logs[-100:], f, indent=2)  # keep latest 100
+        print("[INFO] Reinforcement log updated.")
+    except Exception as e:
+        print(f"[WARN] Failed to update reinforcement log: {e}")
 
     try:
         alog = load_adaptive_log()
