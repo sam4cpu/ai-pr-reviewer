@@ -55,6 +55,7 @@ jobs:
             review_metadata.json
             review_history.json
             ai_adaptive_log.json
+            ai_review_metrics.png
 
   summarize_reviews:
     runs-on: ubuntu-latest
