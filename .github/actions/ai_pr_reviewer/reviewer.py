@@ -1,176 +1,87 @@
-"""
-reviewer.py — Day 17: Reinforcement & Adaptive Tuning Ready
-
-Features:
- - Uses robust_openai with caching + exponential backoff
- - Integrates peer-learning adaptive weights
- - Applies reinforcement tuning to analysis depth & scoring
- - Logs all outputs to artifacts for later self-evaluation
-"""
-
-import os
 import json
-import time
 from pathlib import Path
-from datetime import datetime
-from robust_openai import request_with_backoff
-from peer_learning import load_history, compute_weights
+import matplotlib.pyplot as plt
+from statistics import mean
 
-# === Paths ===
-REVIEW_OUT = Path("ai_review.md")
-SELF_EVAL_OUT = Path("ai_self_eval.json")
-METADATA_OUT = Path("review_metadata.json")
-HISTORY_OUT = Path("review_history.json")
-ADAPTIVE_LOG = Path("ai_adaptive_log.json")
+from robust_openai import analyze_diff, safe_openai_call
+from peer_learning import load_history, compute_weights, write_weights
 
-# === Helpers ===
-def safe_json_write(path: Path, data):
+HISTORY = Path("review_history.json")
+SELF_EVAL = Path("ai_self_eval.json")
+ADAPTIVE_WEIGHTS = Path("adaptive_weights.json")
+METRICS_IMG = Path("ai_review_metrics.png")
+
+def visualize_metrics(reward_matrix, weights):
+    """
+    Generates an introspection plot showing reviewer intelligence metrics.
+    """
     try:
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        print(f"[INFO] Wrote {path.name}")
+        plt.figure(figsize=(8, 4))
+        bars = {
+            "Base Reward": reward_matrix.get("base_reward", 0),
+            "Avg Priority": reward_matrix.get("avg_priority", 0),
+            "Depth Mult.": weights.get("depth_multiplier", 1.0) * 100,
+            "Security Bias": weights.get("security_bias", 1.0) * 100,
+        }
+        plt.bar(bars.keys(), bars.values())
+        plt.title("AI Reviewer Intelligence Metrics")
+        plt.ylabel("Scaled Score")
+        plt.grid(alpha=0.3, linestyle="--")
+        for i, (label, val) in enumerate(bars.items()):
+            plt.text(i, val + 1, f"{val:.1f}", ha="center", fontsize=9)
+        plt.tight_layout()
+        plt.savefig(METRICS_IMG)
+        plt.close()
+        print(f"[INFO] Saved visualization to {METRICS_IMG}")
+        return True
     except Exception as e:
-        print(f"[ERROR] Failed writing {path}: {e}")
+        print(f"[WARN] Failed to generate visualization: {e}")
+        return False
 
-def analyze_feedback_priority(feedback_text: str):
-    """Tiny heuristic to assign a priority score and categories."""
-    text = feedback_text.lower()
-    score = 50
-    high_risk = False
-    category = "general"
+def embed_visual_in_report(report_path="ai_review.md"):
+    """
+    Inserts markdown image link at top of the main review report.
+    """
+    try:
+        p = Path(report_path)
+        if not p.exists() or not METRICS_IMG.exists():
+            return
+        content = p.read_text(encoding="utf-8")
+        header = "### AI Reviewer Intelligence Overview\n\n"
+        img_md = f"![AI Reviewer Metrics]({METRICS_IMG.name})\n\n"
+        if img_md not in content:
+            new_content = header + img_md + content
+            p.write_text(new_content, encoding="utf-8")
+            print("[INFO] Embedded metrics visualization in report.")
+    except Exception as e:
+        print(f"[WARN] Failed to embed visualization: {e}")
 
-    if "security" in text or "vulnerability" in text:
-        score += 25
-        high_risk = True
-        category = "security"
-    if "test" in text or "coverage" in text:
-        score += 10
-        category = "test update"
-    if "refactor" in text or "style" in text:
-        category = "style"
-        score += 5
-    if "performance" in text:
-        category = "performance"
-        score += 8
-
-    score = min(score, 100)
-    return {
-        "priority_score": score,
-        "high_risk": high_risk,
-        "category": category
-    }
-
-def append_history(entry):
+def main():
+    print("[START] Running AI Reviewer — Day 18 (Visualization Upgrade)")
     history = load_history()
-    history.append(entry)
-    safe_json_write(HISTORY_OUT, history)
 
-# === Main Execution ===
-def run_reviewer():
-    start_time = time.time()
-    print("[START] Day 17 — Reinforcement-Ready AI Reviewer")
+    # Analyze diff (as before)
+    review_data = analyze_diff()
+    Path("ai_review.md").write_text(review_data["review_text"], encoding="utf-8")
+    print("[INFO] Saved main review report.")
 
-    # Load PR diff if available
-    diff_path = Path("pr_diff.patch")
-    if not diff_path.exists() or diff_path.stat().st_size == 0:
-        print("[WARN] No diff file found, skipping analysis.")
-        return
+    # Load weights and compute reward matrix (using your reinforcement_tuner logic)
+    from reinforcement_tuner import compute_rewards, adjust_weights_with_rewards
+    self_eval = json.loads(SELF_EVAL.read_text(encoding="utf-8")) if SELF_EVAL.exists() else {}
+    reward_matrix = compute_rewards(history, self_eval)
 
-    diff_text = diff_path.read_text(encoding="utf-8")
+    weights = compute_weights(history)
+    weights = adjust_weights_with_rewards(weights, reward_matrix)
+    write_weights(weights)
 
-    # Prepare prompt for AI
-    prompt = f"""
-You are an expert software engineer performing an intelligent PR review.
+    # Visualize and embed
+    visualize_metrics(reward_matrix, weights)
+    embed_visual_in_report()
 
-Analyze the following diff for:
-- Code correctness, potential bugs
-- Security or performance issues
-- Missing tests or documentation
-- Suggest concise improvements
-
-Return structured Markdown feedback with sections:
-1. Overview
-2. Key Findings
-3. Recommendations
----
-DIFF BELOW:
-{diff_text[:8000]}  # truncated if large
-"""
-
-    openai_key = os.getenv("OPENAI_API_KEY", "")
-    messages = [
-        {"role": "system", "content": "You are a senior AI PR reviewer."},
-        {"role": "user", "content": prompt.strip()}
-    ]
-
-    ai_feedback = request_with_backoff(openai_key, messages, model="gpt-4o-mini")
-
-    if not ai_feedback:
-        print("[WARN] No AI feedback available; using fallback text.")
-        ai_feedback = "## Mock AI Review\n\nUnable to contact OpenAI API. Generated fallback review."
-
-    REVIEW_OUT.write_text(ai_feedback, encoding="utf-8")
-    print("[INFO] Saved AI review to ai_review.md")
-
-    # === Apply adaptive weights ===
-    weights = {}
-    if Path("adaptive_weights.json").exists():
-        try:
-            weights = json.loads(Path("adaptive_weights.json").read_text())
-            print(f"[INFO] Loaded adaptive weights: {weights}")
-        except Exception as e:
-            print(f"[WARN] Could not load adaptive weights: {e}")
-    else:
-        weights = compute_weights(load_history())
-        print("[INFO] Using computed baseline adaptive weights.")
-
-    # === Analyze feedback and scale with adaptive tuning ===
-    analysis = analyze_feedback_priority(ai_feedback)
-    depth_mul = weights.get("depth_multiplier", 1.0)
-    analysis["priority_score"] = int(min(100, analysis["priority_score"] * depth_mul))
-    analysis["timestamp"] = datetime.utcnow().isoformat()
-    analysis["weights_used"] = weights
-    analysis["review_length"] = len(ai_feedback)
-
-    append_history(analysis)
-    print(f"[INFO] Analysis complete: {analysis}")
-
-    # === Log metadata ===
-    metadata = {
-        "mode": "reinforcement",
-        "openai_key_present": bool(openai_key),
-        "adaptive_weights_used": weights,
-        "start_time": start_time,
-        "end_time": time.time(),
-        "duration_sec": round(time.time() - start_time, 2),
-    }
-    safe_json_write(METADATA_OUT, metadata)
-
-    # === Self-eval stub (for next step in workflow) ===
-    self_eval = {
-        "ai_self_score": analysis["priority_score"] / 1.2,
-        "confidence": weights.get("depth_multiplier", 1.0),
-        "timestamp": datetime.utcnow().isoformat()
-    }
-    safe_json_write(SELF_EVAL_OUT, self_eval)
-
-    # === Adaptive log ===
-    adaptive_log = {
-        "weights": weights,
-        "final_priority_score": analysis["priority_score"],
-        "review_len": analysis["review_length"]
-    }
-    safe_json_write(ADAPTIVE_LOG, adaptive_log)
-
-    print("[SUCCESS] Day 17 Reinforcement-Ready Review completed.")
-    return 0
-
+    print("[SUCCESS] AI Reviewer Day 18 complete — report and visualization generated.")
 
 if __name__ == "__main__":
-    try:
-        run_reviewer()
-    except Exception as e:
-        print(f"[FATAL] Reviewer crashed: {e}")
-        raise
+    main()
 
 
 
