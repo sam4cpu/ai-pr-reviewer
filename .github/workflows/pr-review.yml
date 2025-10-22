@@ -279,6 +279,16 @@ jobs:
           echo "[FINAL SUMMARY] Autonomous Networked Reviewer Ecosystem complete."
           echo "[INFO] This repository now participates in a global AI learning network."
 
+      - name: Static security + quality check
+        run: python .github/actions/ai_pr_reviewer/static_check.py
+  
+      - name: Benchmark performance
+        run: python .github/actions/ai_pr_reviewer/benchmark_runner.py
+  
+      - name: Generate dashboard
+        run: python .github/actions/ai_pr_reviewer/generate_dashboard.py
+
+
 
 
 
