@@ -1,4 +1,4 @@
-name: AI PR Reviewer (Reinforcement & Adaptive Tuning Mode)
+name: AI PR Reviewer (Predictive Reinforcement & Knowledge Graph Mode)
 
 on:
   pull_request:
@@ -10,8 +10,10 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -20,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install openai requests numpy pandas scikit-learn matplotlib
+          pip install openai requests numpy pandas scikit-learn matplotlib networkx torch
 
       - name: Fetch PR diff
         env:
@@ -31,19 +33,20 @@ jobs:
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             ${{ github.event.pull_request.url }} > pr_diff.patch
           if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] Empty diff file — skipping."
+            echo "[WARN] Empty diff file — skipping review."
             exit 0
           fi
 
-      - name: Run Adaptive AI PR Reviewer
+      - name: Run Predictive AI Reviewer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running Reinforcement-Ready Reviewer (Day 15)..."
-          python .github/actions/ai_pr_reviewer/reviewer.py
+          echo "[START] Running Predictive Reinforcement Reviewer (Day 17)..."
+          python .github/actions/ai_pr_reviewer/reviewer_predictive.py
+          echo "[SUCCESS] Predictive reasoning & review complete."
 
       - name: Upload review artifacts
         uses: actions/upload-artifact@v4
@@ -55,7 +58,14 @@ jobs:
             review_metadata.json
             review_history.json
             ai_adaptive_log.json
+            ai_predictive_insights.json
             ai_review_metrics.png
+          retention-days: 30
+
+      - name: Log Phase Summary
+        run: |
+          echo "[SUMMARY] Day 17 — Predictive Review Phase complete."
+          echo "[INFO] Moving to trend analysis & reinforcement optimization."
 
   summarize_reviews:
     runs-on: ubuntu-latest
@@ -69,6 +79,7 @@ jobs:
           path: |
             review_summary.json
             review_summary.md
+          retention-days: 30
 
   analyze_trends:
     runs-on: ubuntu-latest
@@ -95,200 +106,96 @@ jobs:
             curl -sSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### 📈 AI PR Review Trends (Reinforcement Mode)\\n\\n$COMMENT_BODY\"}" \
+              -d "{\"body\": \"### 📈 AI PR Review Trends (Predictive Mode)\\n\\n$COMMENT_BODY\"}" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
           fi
 
-  ai_self_evaluate:
+  ai_reinforcement_learning:
     runs-on: ubuntu-latest
     needs: analyze_trends
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Run AI Self-Evaluation Cycle
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python .github/actions/ai_pr_reviewer/self_improvement.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ai-self-eval
-          path: |
-            improvement_plan.json
-            quality_report.md
-            self_eval_metrics.json
-
-  ai_reinforcement_learning:
-    runs-on: ubuntu-latest
-    needs: ai_self_evaluate
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download previous context
-        uses: actions/download-artifact@v4
-        with:
-          name: ai-self-eval
-          path: reinforcement_inputs/
-
-      - name: Run Reinforcement Learning Optimizer
+      - name: Run Reinforcement Optimizer (Predictive-Aware)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Executing Reinforcement Cycle..."
+          echo "[START] Executing Predictive Reinforcement Learning..."
           python .github/actions/ai_pr_reviewer/reinforcement_tuner.py
-          echo "[SUCCESS] Reinforcement weights adjusted dynamically."
+          echo "[SUCCESS] Reinforcement weights optimized using prediction deltas."
 
-      - name: Upload reinforcement artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ai-reinforcement
           path: |
             reward_matrix.json
-            reinforcement_log.md
             adaptive_weights.json
+            reinforcement_log.md
+          retention-days: 30
 
-      - name: Post Reinforcement Summary
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [ -f reward_matrix.json ]; then
-            REWARD_SCORE=$(jq -r '.overall_reward_score' reward_matrix.json)
-            STABILITY=$(jq -r '.stability_factor' reward_matrix.json)
-            COMMENT="### Reinforcement Learning Summary (Day 15)\n\n**Reward Score:** $REWARD_SCORE\n**Stability:** $STABILITY\n**Mode:** Adaptive Tuning\n\n> The reviewer has updated its internal confidence weights based on prior review accuracy and self-evaluation scores."
-            curl -sSL \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"$COMMENT\"}" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Reinforcement summary posted."
-          fi
-
-      - name: Log Final Completion
-        run: |
-          echo "[FINAL SUMMARY] AI PR Reviewer — Reinforcement & Adaptive Tuning complete."
-          echo "[INFO] Artifacts available: review data, trends, self-eval, reinforcement weights."
-
-  finalize_reinforcement_cycle:
+  predictive_model_training:
     runs-on: ubuntu-latest
     needs: ai_reinforcement_learning
-    permissions:
-      pull-requests: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run Final Adaptive Weight Consolidation
+      - name: Train Predictive Model on Review Outcomes
         run: |
-          echo "[START] Consolidating reinforcement learning weights..."
-          python .github/actions/ai_pr_reviewer/reinforcement_tuner.py
-          echo "[INFO] Final adaptive weights tuned successfully."
+          echo "[INFO] Training predictive model on reinforcement and historical review data..."
+          python .github/actions/ai_pr_reviewer/train_predictive_model.py
+          echo "[SUCCESS] Predictive model updated successfully."
 
-      - name: Upload Final Reports
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: final-reinforcement-report
+          name: ai-predictive-model
           path: |
-            adaptive_weights.json
-            reinforcement_report.md
+            predictive_model.pt
+            model_training_log.md
+            prediction_accuracy.json
 
-      - name: Post Final Summary to PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [ -f reinforcement_report.md ]; then
-            FINAL_COMMENT=$(cat reinforcement_report.md)
-            curl -sSL \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### Final Reinforcement Summary (Day 15 Complete)\\n\\n$FINAL_COMMENT\\n\\n Continuous adaptive learning cycle finished successfully.\"}" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Final reinforcement summary posted to PR."
-          else
-            echo "[WARN] No reinforcement report found to post."
-          fi
-
-      - name: Workflow Completion Log
-        run: |
-          echo "[FINAL LOG] Reinforcement & Adaptive Tuning fully complete."
-          echo "[NEXT] Prepare for Autonomous Networked Reviewer Ecosystem."
-
-  ai_network_sync:
+  ai_knowledge_graph_sync:
     runs-on: ubuntu-latest
-    needs: finalize_reinforcement_cycle
+    needs: predictive_model_training
     permissions:
-      pull-requests: write
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Previous Reinforcement Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: final-reinforcement-report
-          path: network_sync_inputs/
-
-      - name: Initialize Network Knowledge Core
+      - name: Build Knowledge Graph
         run: |
-          echo "[START] Initializing Networked Knowledge Core..."
-          mkdir -p global_knowledge
-          python .github/actions/ai_pr_reviewer/network_core.py
-          echo "[INFO] Global knowledge base initialized."
+          echo "[START] Building AI Knowledge Graph..."
+          python .github/actions/ai_pr_reviewer/build_knowledge_graph.py
+          echo "[INFO] Knowledge Graph built successfully."
 
-      - name: Aggregate Cross-Repository Intelligence
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          echo "[INFO] Aggregating intelligence from connected repos..."
-          python .github/actions/ai_pr_reviewer/network_aggregator.py
-          echo "[SUCCESS] Global intelligence update complete."
-
-      - name: Upload Global Intelligence Artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: ai-network-intelligence
+          name: ai-knowledge-graph
           path: |
-            global_knowledge/global_summary.json
-            global_knowledge/adaptive_network_weights.json
-            global_knowledge/network_log.md
+            knowledge_graph.gml
+            graph_summary.md
+            network_embeddings.json
+            graph_visualization.png
 
-      - name: Post Global Sync Summary
+      - name: Post Knowledge Graph Summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ -f global_knowledge/network_log.md ]; then
-            NETWORK_LOG=$(cat global_knowledge/network_log.md)
+          if [ -f graph_summary.md ]; then
+            GRAPH_SUMMARY=$(cat graph_summary.md)
             curl -sSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### AI Network Sync Complete (Day 16)\\n\\n$NETWORK_LOG\\n\\n This repository is now part of the autonomous reviewer ecosystem.\"}" \
+              -d "{\"body\": \"### AI Knowledge Graph \\n\\n$GRAPH_SUMMARY\\n\\n> Predictive reinforcement learning and global intelligence successfully integrated.\"}" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            echo "[SUCCESS] Network sync summary posted to PR."
-          else
-            echo "[WARN] No network log found to post."
           fi
 
-      - name: Log Finalization
+      - name: Log Completion
         run: |
-          echo "[FINAL SUMMARY] Autonomous Networked Reviewer Ecosystem complete."
-          echo "[INFO] This repository now participates in a global AI learning network."
-
-      - name: Static security + quality check
-        run: python .github/actions/ai_pr_reviewer/static_check.py
-  
-      - name: Benchmark performance
-        run: python .github/actions/ai_pr_reviewer/benchmark_runner.py
-  
-      - name: Generate dashboard
-        run: python .github/actions/ai_pr_reviewer/generate_dashboard.py
-
+          echo "[FINAL SUMMARY] Predictive Reinforcement + Knowledge Graph Mode complete."
+          echo "[INFO] The reviewer now anticipates PR quality using historical & network intelligence."
 
 
 
