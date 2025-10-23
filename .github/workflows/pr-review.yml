@@ -1,23 +1,32 @@
-name: AI PR Reviewer (Predictive & Network Intelligence Mode)
+name: AI PR Reviewer (Networked Reviewer Mesh)
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}       # owner/repo for hub (e.g. my-org/ai-review-hub)
+  NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}     # PAT with repo read/write to hub
+
 jobs:
-  ai_predictive_review:
+  ai_pr_review_and_sync:
     runs-on: ubuntu-latest
     permissions:
+      contents: write
       pull-requests: write
-      contents: read
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - uses: ./.github/actions/install_deps
+      - name: Install dependencies (shared)
+        uses: ./.github/actions/install_deps
 
       - name: Fetch PR diff
         env:
@@ -26,128 +35,90 @@ jobs:
           echo "[INFO] Fetching PR diff..."
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
-            ${{ github.event.pull_request.url }} > pr_diff.patch
+            ${{ github.event.pull_request.url }} > pr_diff.patch || true
           if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] Empty diff file — skipping."
-            exit 0
+            echo "[WARN] pr_diff.patch empty — continuing to allow network steps."
           fi
 
-      - name: Run Predictive Reviewer
+      - name: Run existing reviewer (predictive / adaptive)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running Predictive AI PR Reviewer (Day 17)..."
-          python .github/actions/ai_pr_reviewer/reviewer_predictive.py
-          echo "[SUCCESS] Predictive review complete."
+          echo "[START] Running predictive/adaptive review..."
+          python .github/actions/ai_pr_reviewer/reviewer_predictive.py || python .github/actions/ai_pr_reviewer/reviewer.py
+          echo "[DONE] Local review produced artifacts."
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: predictive-review
-          path: |
-            ai_predictive_insights.json
-            ai_predictive_summary.md
-            ai_predictive_graph.png
-          if-no-files-found: ignore
-
-  train_predictive_model:
-    runs-on: ubuntu-latest
-    needs: ai_predictive_review
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - uses: ./.github/actions/install_deps
-
-      - name: Train Predictive Model
+      - name: Pull Global Hub State
+        env:
+          NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}
+          NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}
         run: |
-          echo "[INFO] Training predictive model from review history..."
-          python .github/actions/ai_pr_reviewer/train_predictive_model.py
+          echo "[START] Pulling global hub content..."
+          python .github/actions/ai_pr_reviewer/global_sync.py pull
+          echo "[DONE] Pulled hub state (if available)."
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: predictive-model
-          path: |
-            predictive_model.pkl
-            model_metrics.json
-            training_log.md
-          if-no-files-found: ignore
-
-  build_knowledge_graph:
-    runs-on: ubuntu-latest
-    needs: train_predictive_model
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - uses: ./.github/actions/install_deps
-
-      - name: Build Knowledge Graph
+      - name: Fuse Local + Global Adaptive State
         run: |
-          echo "[INFO] Building AI Reviewer Knowledge Graph..."
-          python .github/actions/ai_pr_reviewer/build_knowledge_graph.py
+          echo "[START] Merging local + global adaptive weights..."
+          python .github/actions/ai_pr_reviewer/network_fusion.py
+          echo "[DONE] Fusion complete. adaptive_weights.json updated."
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: knowledge-graph
-          path: |
-            knowledge_graph.json
-            graph_visualization.png
-          if-no-files-found: ignore
-
-  generate_dashboard_v17:
-    runs-on: ubuntu-latest
-    needs: build_knowledge_graph
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - uses: ./.github/actions/install_deps
-
-      - name: Generate Integrated Dashboard
+      - name: Calibrate Reviewer Confidence
         run: |
-          echo "[START] Generating unified AI dashboard..."
-          python .github/actions/ai_pr_reviewer/generate_dashboard_v17.py
-          echo "[SUCCESS] Dashboard generation complete."
+          echo "[START] Calibrating reviewer confidence from history..."
+          python .github/actions/ai_pr_reviewer/reviewer_confidence.py
+          echo "[DONE] Confidence calibration saved as reviewer_confidence.json"
 
-      - uses: actions/upload-artifact@v4
+      - name: Generate Global Dashboard (local view)
+        run: |
+          echo "[START] Generating Day 18 Global Dashboard..."
+          python .github/actions/ai_pr_reviewer/generate_dashboard_v18.py
+          echo "[DONE] dashboard_v18.html produced."
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ai-dashboard
+          name: networked-ai-artifacts
           path: |
-            dashboard_v17.html
-            dashboard_summary.json
+            ai_review.md
+            ai_self_eval.json
+            review_history.json
+            adaptive_weights.json
+            adaptive_network_weights.json
+            reviewer_confidence.json
+            dashboard_v18.html
           if-no-files-found: ignore
 
-      - name: Post Dashboard Summary to PR
+      - name: Push merged state back to hub (best-effort)
+        env:
+          NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}
+          NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "[START] Pushing summary to network hub (best-effort)..."
+          python .github/actions/ai_pr_reviewer/global_sync.py push
+          echo "[DONE] Push attempted."
+
+      - name: Post network sync summary to PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ -f dashboard_summary.json ]; then
-            SUMMARY=$(cat dashboard_summary.json)
-            curl -sSL \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"### AI PR Reviewer Dashboard Summary \\n\\n$SUMMARY\\n\\n[View Full Dashboard Artifact](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }})\"}" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-          fi
+          SUMMARY="Network sync completed. Artifacts attached: dashboard_v18.html and adaptive weights."
+          curl -sSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "{\"body\": \"### Network Sync Summary\\n\\n$SUMMARY\"}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
 
-      - name: Log Completion
+      - name: Log final
         run: |
-          echo "[FINAL SUMMARY] Predictive & Network Intelligence Mode complete."
-          echo "[INFO] Dashboard and intelligence artifacts uploaded."
+          echo "[FINAL] Networked Reviewer Mesh finished."
+
+
 
 
 
