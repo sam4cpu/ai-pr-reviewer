@@ -1,0 +1,53 @@
+name: Deploy AI Reviewer Dashboard 
+
+on:
+  workflow_run:
+    workflows: ["AI PR Reviewer (Networked Reviewer Mesh)"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "ai-dashboard"
+  cancel-in-progress: true
+
+jobs:
+  deploy_dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download latest dashboard artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: networked-ai-artifacts
+          path: ./public/
+
+      - name: Prepare dashboard for deployment
+        run: |
+          mkdir -p public
+          if [ -f ./public/dashboard_v18.html ]; then
+            mv ./public/dashboard_v18.html ./public/index.html
+            echo "[INFO] Dashboard ready for deployment."
+          else
+            echo "[WARN] dashboard_v18.html not found. Using placeholder."
+            echo "<h1>Dashboard not found — run reviewer workflow first.</h1>" > ./public/index.html
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload dashboard artifact to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
