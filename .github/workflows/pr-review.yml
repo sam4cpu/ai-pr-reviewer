@@ -71,7 +71,7 @@ jobs:
 
       - name: Generate Global Dashboard (local view)
         run: |
-          echo "[START] Generating Day 18 Global Dashboard..."
+          echo "[START] Generating Global Dashboard..."
           python .github/actions/ai_pr_reviewer/generate_dashboard_v18.py
           echo "[DONE] dashboard_v18.html produced."
 
