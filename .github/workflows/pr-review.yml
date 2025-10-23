@@ -148,12 +148,25 @@ jobs:
             -d "{\"body\": \"### Full Pipeline Summary\\n\\n$SUMMARY\\n\\n![Evolution Badge](https://github.com/${GITHUB_REPOSITORY}/blob/main/assets/evolution_badge.svg)\"}" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
 
+      - name: Generate recruiter-friendly summary + badge
+        run: |
+          python .github/actions/ai_pr_reviewer/recruiter_report.py
+
+      - name: Upload recruiter report
+        uses: actions/upload-artifact@v4
+        with:
+           name: recruiter-summary
+           path: |
+             recruiter_summary.md
+             recruiter_score.json
+             recruiter_badge.svg
+           if-no-files-found: ignore
+
+
       - name: Log Final State
         run: echo "[FINAL] Networked Reviewer Mesh + Dashboard + Self-Evolution complete."
 
-      - name: Generate recruiter-friendly summary
-        run: |
-          python .github/actions/ai_pr_reviewer/recruiter_report.py
+      
 
 
 
