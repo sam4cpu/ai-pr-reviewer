@@ -1,55 +1,57 @@
-"""
-Simple static dashboard generator.
-Aggregates review + learning artifacts into a visual HTML summary.
-"""
+import json
+from pathlib import Path
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-import json, os, datetime, pathlib
+def safe_load(path):
+    if Path(path).exists():
+        try:
+            return json.loads(Path(path).read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
 
-ARTIFACTS = [
-    "review_summary.json",
-    "review_history.json",
-    "ai_self_eval.json",
-    "adaptive_weights.json",
-    "reward_matrix.json",
-]
+# Load data
+predictive = safe_load("ai_predictive_insights.json")
+reward = safe_load("reward_matrix.json")
+graph = safe_load("knowledge_graph.json")
 
-def load_json(path):
-    if os.path.exists(path):
-        with open(path) as f:
-            return json.load(f)
-    return None
+# Construct figures
+fig = make_subplots(rows=1, cols=3, subplot_titles=("Predictive Trends", "Reward Stability", "Knowledge Graph Nodes"))
 
-def html_card(title, body):
-    return f"""
-    <div style='padding:1em;border-radius:10px;background:#f5f5f5;margin:1em 0'>
-      <h3>{title}</h3>
-      <pre style='white-space:pre-wrap'>{body}</pre>
-    </div>
-    """
+# Predictive Trends
+if predictive:
+    fig.add_trace(
+        go.Bar(x=list(predictive.keys()), y=list(predictive.values()), name="Predictive Scores"),
+        row=1, col=1
+    )
 
-def main():
-    parts = []
-    for path in ARTIFACTS:
-        data = load_json(path)
-        if data:
-            pretty = json.dumps(data, indent=2)[:4000]  # truncate long
-            parts.append(html_card(path, pretty))
-        else:
-            parts.append(html_card(path, "(missing)"))
-    timestamp = datetime.datetime.utcnow().isoformat()
-    html = f"""
-    <html>
-    <head><title>AI PR Reviewer Dashboard</title></head>
-    <body style='font-family:monospace;background:#fafafa;padding:2em'>
-      <h1>AI PR Reviewer — Continuous Learning Dashboard</h1>
-      <p>Generated: {timestamp} UTC</p>
-      {''.join(parts)}
-    </body></html>
-    """
-    os.makedirs("dashboard", exist_ok=True)
-    out = pathlib.Path("dashboard/index.html")
-    out.write_text(html)
-    print(f"[DASHBOARD] Wrote {out}")
+# Reward Stability
+if reward:
+    base = reward.get("base_reward", 0)
+    fig.add_trace(
+        go.Indicator(mode="gauge+number", value=base, title={"text": "Reward Stability"}, gauge={"axis": {"range": [0, 100]}}),
+        row=1, col=2
+    )
 
-if __name__ == "__main__":
-    main()
+# Knowledge Graph Overview
+if graph:
+    nodes = len(graph.get("nodes", []))
+    edges = len(graph.get("edges", []))
+    fig.add_trace(
+        go.Indicator(mode="number", value=nodes, title={"text": f"Graph Nodes ({edges} edges)"}),
+        row=1, col=3
+    )
+
+fig.update_layout(title_text=" AI PR Reviewer — Unified Intelligence Dashboard", height=600)
+fig.write_html("dashboard_v17.html")
+
+summary = {
+    "predictive_factors": list(predictive.keys())[:5],
+    "reward_base": reward.get("base_reward"),
+    "graph_nodes": len(graph.get("nodes", []))
+}
+Path("dashboard_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+print("[INFO] Dashboard generated successfully — saved as dashboard.html")
+
