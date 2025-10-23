@@ -64,7 +64,7 @@ jobs:
 
       - name: Log Phase Summary
         run: |
-          echo "[SUMMARY] Day 17 — Predictive Review Phase complete."
+          echo "[SUMMARY] Predictive Review Phase complete."
           echo "[INFO] Moving to trend analysis & reinforcement optimization."
 
   summarize_reviews:
