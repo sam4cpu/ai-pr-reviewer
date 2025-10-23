@@ -151,6 +151,11 @@ jobs:
       - name: Log Final State
         run: echo "[FINAL] Networked Reviewer Mesh + Dashboard + Self-Evolution complete."
 
+      - name: Generate recruiter-friendly summary
+        run: |
+          python .github/actions/ai_pr_reviewer/recruiter_report.py
+
+
 
 
 
