@@ -17,11 +17,7 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install openai requests numpy pandas scikit-learn networkx matplotlib plotly 
-          pip install torch --extra-index-url https://download.pytorch.org/whl/cpu -v
+      - uses: ./.github/actions/install_deps
 
       - name: Fetch PR diff
         env:
@@ -44,24 +40,32 @@ jobs:
           python .github/actions/ai_pr_reviewer/reviewer_predictive.py
           echo "[SUCCESS] Predictive review complete."
 
-      - name: Upload predictive artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: predictive-review
           path: |
             ai_predictive_insights.json
             ai_predictive_summary.md
             ai_predictive_graph.png
+          if-no-files-found: ignore
 
   train_predictive_model:
     runs-on: ubuntu-latest
     needs: ai_predictive_review
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - uses: ./.github/actions/install_deps
+
       - name: Train Predictive Model
         run: |
           echo "[INFO] Training predictive model from review history..."
           python .github/actions/ai_pr_reviewer/train_predictive_model.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: predictive-model
@@ -69,22 +73,32 @@ jobs:
             predictive_model.pkl
             model_metrics.json
             training_log.md
+          if-no-files-found: ignore
 
   build_knowledge_graph:
     runs-on: ubuntu-latest
     needs: train_predictive_model
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - uses: ./.github/actions/install_deps
+
       - name: Build Knowledge Graph
         run: |
           echo "[INFO] Building AI Reviewer Knowledge Graph..."
           python .github/actions/ai_pr_reviewer/build_knowledge_graph.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: knowledge-graph
           path: |
             knowledge_graph.json
             graph_visualization.png
+          if-no-files-found: ignore
 
   generate_dashboard_v17:
     runs-on: ubuntu-latest
@@ -94,6 +108,12 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - uses: ./.github/actions/install_deps
 
       - name: Generate Integrated Dashboard
         run: |
@@ -107,6 +127,7 @@ jobs:
           path: |
             dashboard_v17.html
             dashboard_summary.json
+          if-no-files-found: ignore
 
       - name: Post Dashboard Summary to PR
         env:
