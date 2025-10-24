@@ -15,7 +15,7 @@ def pull():
     hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
     hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
     clone_url = f"https://{hub_token}@github.com/{hub_repo}.git"
-    if not repo or not token:
+    if not hub_repo or not hub_token:
         print("[WARN] NETWORK_HUB_REPO or NETWORK_HUB_TOKEN not set. Skipping pull.")
         return
     if HUB_DIR.exists():
