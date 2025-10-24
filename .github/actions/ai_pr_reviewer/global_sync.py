@@ -31,12 +31,47 @@ def pull():
     except Exception as e:
         print(f"[WARN] Failed to pull hub repo: {e}")
 
+import os
+import shutil
+import subprocess
+
 def push():
-    repo = os.getenv("NETWORK_HUB_REPO")
-    token = os.getenv("NETWORK_HUB_TOKEN")
-    if not repo or not token:
-        print("[WARN] NETWORK_HUB_REPO or NETWORK_HUB_TOKEN not set. Skipping push.")
+    hub_repo = os.getenv("NETWORK_HUB_REPO")
+    hub_token = os.getenv("NETWORK_HUB_TOKEN")
+    if not hub_repo or not hub_token:
+        print("[WARN] Missing NETWORK_HUB_REPO or NETWORK_HUB_TOKEN.")
         return
+
+    hub_dir = "/tmp/ai_hub"
+
+    #  ensure clean directory - fixing bug from final3
+    if os.path.exists(hub_dir):
+        print("[INFO] Removing old hub directory...")
+        shutil.rmtree(hub_dir, ignore_errors=True)
+
+    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git"
+    print(f"[INFO] Cloning hub repo from {hub_repo}...")
+    subprocess.run(["git", "clone", clone_url, hub_dir], check=True)
+
+    os.chdir(hub_dir)
+
+    #  ensure we are on main (not detached)
+    subprocess.run(["git", "checkout", "-B", "main"], check=True)
+
+    # copy in the updated files (your badges/reports)
+    for f in ["adaptive_weights.json", "recruiter_badge.svg", "project_evolution_report.md"]:
+        src = os.path.join(os.getenv("GITHUB_WORKSPACE", ""), f)
+        if os.path.exists(src):
+            shutil.copy(src, hub_dir)
+
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", "Evolution badge + report (auto)"], check=True)
+
+    # push safely even if main doesn’t exist yet
+    subprocess.run(["git", "push", "origin", "main"], check=True)
+
+    print("[SUCCESS] Synced artifacts to network hub.")
+    
     if not Path("adaptive_network_weights.json").exists():
         print("[WARN] No adaptive_network_weights.json to push. Skipping.")
         return
