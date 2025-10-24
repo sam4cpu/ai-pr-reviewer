@@ -98,16 +98,16 @@ def push():
         print("[INFO] No new changes to commit — skipping push.")
         return
 
-    # Ensure branch context (avoids detached HEAD)
-    run_cmd(["git", "branch", "-M", "main"], cwd=hub_dir, check=False)
+    # Ensure we're on a branch (avoids detached HEAD issues)
+    run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
 
     push_result = subprocess.run(
-        ["git", "push", "origin", "HEAD:main"],
+        ["git", "push", "origin", "main"],
         cwd=hub_dir,
         capture_output=True,
         text=True
     )
-
+    
     if push_result.returncode == 0:
         print("[SUCCESS] Synced global report + badge to hub.")
     else:
