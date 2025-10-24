@@ -2,6 +2,20 @@ import os
 import json
 import re
 from datetime import datetime
+from pathlib import Path
+import json
+
+CONF_FILE = Path("reviewer_confidence.json")
+if CONF_FILE.exists():
+    try:
+        confidence = json.loads(CONF_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[WARN] Failed to load reviewer_confidence.json: {e}")
+        confidence = {}
+else:
+    print("[WARN] reviewer_confidence.json not found — using default confidence baseline.")
+    confidence = {"calibrated_confidence": 0.5}
+
 
 def extract_section(text, header):
     """Extract a markdown section by its header."""
