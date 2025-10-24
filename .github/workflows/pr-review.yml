@@ -113,6 +113,9 @@ jobs:
             evolution_state.json
             project_evolution_report.md
           if-no-files-found: ignore
+          
+      - name: Cleanup hub temp directory
+        run: rm -rf /tmp/ai_hub || true
 
       # --- Push merged/evolved state -----------------------------------------
       - name: Push merged state & badge back to hub
