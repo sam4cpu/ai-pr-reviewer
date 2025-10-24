@@ -8,7 +8,7 @@
 
 ## Overview
 
-AI PR Reviewer is an **AI-driven code review assistant** that continuously improves its reasoning quality through:
+AI PR Reviewer is an **AI-driven code review assistant** that continuously improves its reasoning quality through: 
 - **Adaptive Reinforcement Learning** — adjusts review weights based on past accuracy and self-evaluations.  
 - **Predictive Insight Models** — anticipates likely review patterns and defects.  
 - **Networked Reviewer Mesh** — shares learning data across repositories to build a global code-intelligence layer.  
