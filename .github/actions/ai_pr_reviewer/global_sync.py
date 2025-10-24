@@ -62,25 +62,28 @@ def pull():
         print("[WARN] No global_state.json found in hub repo (new network?)")
 
 def push():
-    """Push new badges, metrics, or summaries to global hub."""
+    """Push new badges, metrics, or summaries to global hub in a CI-safe way."""
     clone_url = get_clone_url()
     hub_dir = "/tmp/ai_hub"
 
-    # Reset clone if it exists
+    # 1. Reset clone if it exists
     if Path(hub_dir).exists():
         shutil.rmtree(hub_dir)
 
     print(f"[INFO] Cloning hub repo from {clone_url}...")
     run_cmd(["git", "clone", clone_url, hub_dir])
 
-    # Ensure Git identity
+    # 2. Ensure git identity is configured
     ensure_git_identity()
 
+    # 3. Immediately create or reset the main branch
+    #  This ensures all future commits are on 'main' and not detached
     run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
 
-    # Ensure assets directory exists
+    # 4. Ensure assets directory exists
     Path(hub_dir, "assets").mkdir(exist_ok=True)
 
+    # 5. Copy all outputs BEFORE staging or committing
     for f in ["evolution_state.json", "project_evolution_report.md"]:
         if Path(f).exists():
             shutil.copy(f, Path(hub_dir, f))
@@ -89,7 +92,10 @@ def push():
     if Path("assets/evolution_badge.svg").exists():
         shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
 
+    # 6. Stage changes
     run_cmd(["git", "add", "."], cwd=hub_dir)
+
+    # 7. Commit changes (skip if nothing new)
     commit_result = subprocess.run(
         ["git", "commit", "-m", "Evolution badge + report (auto)"],
         cwd=hub_dir,
@@ -101,6 +107,7 @@ def push():
         print("[INFO] No new changes to commit — skipping push.")
         return
 
+    # 8. Push to the main branch
     push_result = subprocess.run(
         ["git", "push", "origin", "main"],
         cwd=hub_dir,
@@ -115,6 +122,7 @@ def push():
         print("[WARN] Push failed. Attempting force push...")
         run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
         print("[FINAL] Force push attempted (safe for CI).")
+
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
