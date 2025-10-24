@@ -77,7 +77,7 @@ Technical Highlights
 - OpenAI API (for natural-language review generation)  
 - JSON-based adaptive model persistence  
 
----
+--- 
 
 ## Recruiter Summary
 
