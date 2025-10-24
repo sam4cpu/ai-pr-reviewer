@@ -73,7 +73,15 @@ def generate_summary():
         "total_prs": dashboard.get("total_prs", 0),
         "avg_confidence": dashboard.get("avg_confidence", 75),
         "adaptability": round(weights.get("depth_multiplier", 1.0) * 50, 2),
-        "insight_depth": mean([v for v in weights.values() if isinstance(v, (int, float))]) * 10 if weights else 50,
+        numeric_weights = [v for v in weights.values() if isinstance(v, (int, float))]
+        insight_depth = mean(numeric_weights) * 10 if numeric_weights else 50
+        summary = {
+            "avg_confidence": confidence.get("calibrated_confidence", 0.5) * 100,
+            "adaptability_index": (weights.get("adaptivity", 1.0)),
+            "insight_depth": insight_depth,
+            "impact_score": round((confidence.get("calibrated_confidence", 0.5) * 100 + insight_depth) / 2, 2),
+       }
+
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     }
 
