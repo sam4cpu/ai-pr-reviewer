@@ -130,7 +130,31 @@ def push():
     else:
         print("[WARN] Push failed — attempting force push...")
         run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
-        print("[FINAL] Force push attempted (safe for CI).")
+        print("[FINAL] Force push attempted.")
+
+    badge_svg = f"""
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="28">
+  <rect width="220" height="28" fill="#24292e" rx="5"/>
+  <text x="10" y="19" fill="#fff" font-family="monospace" font-size="13">AI Reviewer Evolution ✔</text>
+  <a xlink:href="https://github.com/{os.getenv('GITHUB_REPOSITORY')}/actions">
+    <rect x="150" width="65" height="28" fill="#2ea44f" rx="5"/>
+    <text x="160" y="19" fill="#fff" font-family="monospace" font-size="13">LIVE →</text>
+  </a>
+</svg>
+""".strip()
+
+    assets_dir = Path(hub_dir) / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    (assets_dir / "evolution_badge.svg").write_text(badge_svg, encoding="utf-8")
+
+    print("[INFO] Generated evolution_badge.svg with live CI link.")
+
+    # Commit + push badge to hub
+    run_cmd(["git", "add", "assets/evolution_badge.svg"], cwd=hub_dir)
+    run_cmd(["git", "commit", "-m", "Add live evolution badge (auto)"], cwd=hub_dir, check=False)
+    run_cmd(["git", "push", "origin", "HEAD:main"], cwd=hub_dir, check=False)
+    print("[SUCCESS] Evolution badge updated and pushed.")
+
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
