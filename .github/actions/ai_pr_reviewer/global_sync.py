@@ -77,6 +77,11 @@ def push():
 
     Path(hub_dir, "assets").mkdir(exist_ok=True)
 
+    # ===============================
+    # Switch/create branch first 
+    # ===============================
+    run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
+
     # Copy outputs
     for f in ["evolution_state.json", "project_evolution_report.md"]:
         if Path(f).exists():
@@ -86,7 +91,10 @@ def push():
     if Path("assets/evolution_badge.svg").exists():
         shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
 
+    # Stage changes
     run_cmd(["git", "add", "."], cwd=hub_dir)
+
+    # Commit changes (skip if nothing new)
     commit_result = subprocess.run(
         ["git", "commit", "-m", "Evolution badge + report (auto)"],
         cwd=hub_dir,
@@ -98,22 +106,21 @@ def push():
         print("[INFO] No new changes to commit — skipping push.")
         return
 
-    # Ensure we're on a branch (avoids detached HEAD issues)
-    run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
-
+    # Push to main branch
     push_result = subprocess.run(
         ["git", "push", "origin", "main"],
         cwd=hub_dir,
         capture_output=True,
         text=True
     )
-    
+
     if push_result.returncode == 0:
         print("[SUCCESS] Synced global report + badge to hub.")
     else:
-        print("[WARN] Push attempt failed (detached HEAD?). Retrying with force...")
-        run_cmd(["git", "push", "origin", "HEAD:main", "--force"], cwd=hub_dir, check=False)
-        print("[FINAL] Force push attempted (safe for CI).")
+        # Force push as last resort
+        print("[WARN] Push failed. Attempting force push...")
+        run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
+        print("[FINAL] Force push attempted.")
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
