@@ -83,8 +83,6 @@ def generate_summary():
        }
         if not numeric_weights:
         print("[WARN] No numeric weights found; using neutral baseline for insight depth.")
-
-
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     }
 
