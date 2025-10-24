@@ -73,17 +73,26 @@ def push():
     print(f"[INFO] Cloning hub repo from {clone_url}...")
     run_cmd(["git", "clone", clone_url, hub_dir])
 
-    # 2. Ensure git identity is configured
+    # 2. Ensure git identity
     ensure_git_identity()
 
-    # 3. Immediately create or reset the main branch
-    #  This ensures all future commits are on 'main' and not detached
+    # 3. Checkout or create 'main' branch BEFORE making any changes
+    print("[INFO] Switching to branch 'main' before any commits...")
     run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
+
+    # Verify current branch (debug)
+    branch_result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=hub_dir,
+        capture_output=True,
+        text=True
+    )
+    print(f"[DEBUG] Current branch after checkout: '{branch_result.stdout.strip()}'")
 
     # 4. Ensure assets directory exists
     Path(hub_dir, "assets").mkdir(exist_ok=True)
 
-    # 5. Copy all outputs BEFORE staging or committing
+    # 5. Copy files to hub directory
     for f in ["evolution_state.json", "project_evolution_report.md"]:
         if Path(f).exists():
             shutil.copy(f, Path(hub_dir, f))
@@ -95,7 +104,7 @@ def push():
     # 6. Stage changes
     run_cmd(["git", "add", "."], cwd=hub_dir)
 
-    # 7. Commit changes (skip if nothing new)
+    # 7. Commit changes
     commit_result = subprocess.run(
         ["git", "commit", "-m", "Evolution badge + report (auto)"],
         cwd=hub_dir,
@@ -104,10 +113,12 @@ def push():
     )
 
     if "nothing to commit" in commit_result.stdout.lower():
-        print("[INFO] No new changes to commit — skipping push.")
+        print("[INFO] No changes to commit — skipping push.")
         return
+    print(f"[INFO] Commit created:\n{commit_result.stdout}")
 
-    # 8. Push to the main branch
+    # 8. Push to main branch
+    print("[INFO] Pushing changes to 'main'...")
     push_result = subprocess.run(
         ["git", "push", "origin", "main"],
         cwd=hub_dir,
@@ -118,8 +129,7 @@ def push():
     if push_result.returncode == 0:
         print("[SUCCESS] Synced global report + badge to hub.")
     else:
-        # Force push as a last resort
-        print("[WARN] Push failed. Attempting force push...")
+        print("[WARN] Push failed — attempting force push...")
         run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
         print("[FINAL] Force push attempted (safe for CI).")
 
