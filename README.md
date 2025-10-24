@@ -2,11 +2,6 @@
 
 ![Impact Score](https://github.com/sam4cpu/ai-pr-reviewer/blob/main/recruiter_badge.svg)
 
-# AI Reviewer Hub Dashboard
-
-[![AI Reviewer Evolution](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/evolution_badge.svg)](https://github.com/sam4cpu/ai-pr-reviewer/actions)
-[![Performance Health](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/performance_badge.svg)](https://github.com/sam4cpu/ai-review-hub)
-
 ---
 
 ###  Global AI Reviewer Network
@@ -44,8 +39,8 @@ AI PR Reviewer is an **AI-driven code review assistant** that continuously impro
 ## 📈 Example Output
 
 ### Evolution Badge
-[![AI Reviewer Evolution](assets/evolution_badge.svg)](https://github.com/sam4cpu/ai-pr-reviewer/actions)
-![Performance Health](assets/performance_badge.svg)
+[![AI Reviewer Evolution](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/evolution_badge.svg)](https://github.com/sam4cpu/ai-pr-reviewer/actions)
+[![Performance Health](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/performance_badge.svg)](https://github.com/sam4cpu/ai-review-hub)
 
 ### Recruiter Badge  
 ![Impact Score](recruiter_badge.svg)
