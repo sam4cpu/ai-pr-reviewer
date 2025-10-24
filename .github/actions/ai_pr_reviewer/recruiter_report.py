@@ -81,6 +81,9 @@ def generate_summary():
             "insight_depth": insight_depth,
             "impact_score": round((confidence.get("calibrated_confidence", 0.5) * 100 + insight_depth) / 2, 2),
        }
+        if not numeric_weights:
+        print("[WARN] No numeric weights found; using neutral baseline for insight depth.")
+
 
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     }
