@@ -1,121 +1,80 @@
 import os
-import shutil
 import subprocess
 from pathlib import Path
+from datetime import datetime
 
-HUB_DIR = Path("/tmp/ai_hub")
-LOCAL_ADAPTIVE = Path("adaptive_weights.json")
-NETWORK_ADAPTIVE_LOCAL = Path("adaptive_network_weights.json")
+HUB_REPO = os.getenv("NETWORK_HUB_REPO", "").strip()
+WORK_DIR = "/home/runner/work/ai-pr-reviewer/ai-pr-reviewer"
+HUB_DIR = "/tmp/ai_hub"
 
-def run(cmd, cwd=None):
-    print(f"> {cmd}")
-    subprocess.check_call(cmd, shell=True, cwd=cwd)
-
-def pull():
-    hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
-    hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
-    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git"
-    if not hub_repo or not hub_token:
-        print("[WARN] NETWORK_HUB_REPO or NETWORK_HUB_TOKEN not set. Skipping pull.")
-        return
-    if HUB_DIR.exists():
-        shutil.rmtree(HUB_DIR)
-    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
+def safe_run(cmd, check=True, capture=False):
+    """Run shell command safely and log clearly."""
+    print(f"[CMD] {' '.join(cmd)}")
     try:
-        run(f"git clone --depth=1 {clone_url} {HUB_DIR}")
-        candidate = HUB_DIR / "adaptive_network_weights.json"
-        if candidate.exists():
-            shutil.copy(candidate, NETWORK_ADAPTIVE_LOCAL)
-            print(f"[INFO] Copied {candidate} -> {NETWORK_ADAPTIVE_LOCAL}")
+        if capture:
+            return subprocess.run(cmd, check=check, text=True, capture_output=True)
         else:
-            print("[INFO] Hub has no adaptive_network_weights.json")
-    except Exception as e:
-        print(f"[WARN] Failed to pull hub repo: {e}")
-
-import os
-import shutil
-import subprocess
+            subprocess.run(cmd, check=check)
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Command failed: {e}")
+        raise
 
 def push():
+    """Push generated summary and badge to global hub repo."""
+    if not HUB_REPO:
+        raise RuntimeError("NETWORK_HUB_REPO secret not set in GitHub Secrets!")
+
+    clone_url = f"https://{HUB_REPO}" if not HUB_REPO.startswith("https") else HUB_REPO
     print(f"[INFO] Cloning hub repo from {clone_url}...")
-    subprocess.run(["git", "clone", clone_url, hub_dir], check=True)
 
-    os.chdir(hub_dir)
-    subprocess.run(["git", "checkout", "main"], check=True)
-    subprocess.run(["git", "reset", "--hard", "origin/main"], check=True)
+    # Clean old clone if exists
+    if os.path.exists(HUB_DIR):
+        subprocess.run(["rm", "-rf", HUB_DIR], check=True)
 
-    # Copy artifacts
-    subprocess.run(["cp", "-r", "/home/runner/work/ai-pr-reviewer/ai-pr-reviewer/recruiter_summary.*", "."], check=True)
+    # --- Clone hub repo ---
+    safe_run(["git", "clone", clone_url, HUB_DIR])
 
-    # Configure bot identity (fixes 'Author identity unknown')
-    subprocess.run(["git", "config", "user.name", "AI Reviewer Bot"], check=True)
-    subprocess.run(["git", "config", "user.email", "bot@ai-reviewer.local"], check=True)
+    os.chdir(HUB_DIR)
+    safe_run(["git", "checkout", "main"])
+    safe_run(["git", "pull", "origin", "main"])
 
-    subprocess.run(["git", "add", "."], check=True)
-    subprocess.run(["git", "commit", "-m", "Evolution badge + report (auto)"], check=True)
-    subprocess.run(["git", "push", "origin", "main"], check=True)
+    # --- Configure bot identity ---
+    safe_run(["git", "config", "user.name", "AI Reviewer Bot"])
+    safe_run(["git", "config", "user.email", "bot@ai-reviewer.local"])
 
-    print("[SUCCESS] Summary & badge synced to network hub.")
+    # --- Copy new artifacts from the project workspace ---
+    artifacts = [
+        "assets/evolution_badge.svg",
+        "evolution_state.json",
+        "project_evolution_report.md",
+        "recruiter_summary.md",
+        "review_summary.md",
+    ]
+    for artifact in artifacts:
+        src = Path(WORK_DIR) / artifact
+        if src.exists():
+            safe_run(["cp", str(src), "."])
+        else:
+            print(f"[WARN] Missing artifact: {artifact}")
 
-    hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
-    hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
-    
-    if not hub_repo or not hub_token:
-        print("[WARN] Missing NETWORK_HUB_REPO or NETWORK_HUB_TOKEN.")
+    # --- Check for changes ---
+    result = safe_run(["git", "status", "--porcelain"], capture=True)
+    if not result.stdout.strip():
+        print("[INFO] No changes to commit. Skipping push.")
         return
 
-    hub_dir = "/tmp/ai_hub"
+    commit_msg = f"Evolution badge + report (auto) — {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+    safe_run(["git", "add", "."])
+    safe_run(["git", "commit", "-m", commit_msg])
+    safe_run(["git", "push", "origin", "main"])
 
-    #  ensure clean directory - fixing bug from final3
-    if os.path.exists(hub_dir):
-        print("[INFO] Removing old hub directory...")
-        shutil.rmtree(hub_dir, ignore_errors=True)
-
-    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git"
-    print(f"[INFO] Cloning hub repo from {hub_repo}...")
-    subprocess.run(["git", "clone", clone_url, hub_dir], check=True)
-
-    os.chdir(hub_dir)
-
-    #  ensure we are on main (not detached)
-    subprocess.run(["git", "checkout", "-B", "main"], check=True)
-
-    # copy in the updated files (your badges/reports)
-    for f in ["adaptive_weights.json", "recruiter_badge.svg", "project_evolution_report.md"]:
-        src = os.path.join(os.getenv("GITHUB_WORKSPACE", ""), f)
-        if os.path.exists(src):
-            shutil.copy(src, hub_dir)
-
-    subprocess.run(["git", "add", "."], check=True)
-    subprocess.run(["git", "commit", "-m", "Evolution badge + report (auto)"], check=True)
-
-    # push safely even if main doesn’t exist yet
-    subprocess.run(["git", "push", "origin", "main"], check=True)
-
-    print("[SUCCESS] Synced artifacts to network hub.")
-    
-    if not Path("adaptive_network_weights.json").exists():
-        print("[WARN] No adaptive_network_weights.json to push. Skipping.")
-        return
-    tmp = HUB_DIR
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
-    try:
-        run(f"git clone {clone_url} {tmp}")
-        dest = tmp / f"adaptive_network_weights_{os.getenv('GITHUB_RUN_ID','local')}.json"
-        shutil.copy("adaptive_network_weights.json", dest)
-        run("git add .", cwd=tmp)
-        run(f'git commit -m "Add adaptive network snapshot from {os.getenv("GITHUB_REPOSITORY","local")}"', cwd=tmp)
-        run("git push origin HEAD", cwd=tmp)
-        print("[INFO] Pushed adaptive snapshot to hub (may create a new commit).")
-    except Exception as e:
-        print(f"[WARN] Failed to push to hub: {e}")
+    print("[SUCCESS] Summary & badge synced successfully to network hub.")
 
 if __name__ == "__main__":
-    import sys
-    cmd = (sys.argv[1] if len(sys.argv)>1 else "pull").lower()
-    if cmd == "pull":
-        pull()
-    else:
+    print("[START] Pushing summary & badge to network hub...")
+    try:
         push()
+    except Exception as e:
+        print(f"[FATAL] Global sync failed: {e}")
+        exit(1)
+
