@@ -31,6 +31,7 @@ AI PR Reviewer is an **AI-driven code review assistant** that continuously impro
 
 ### Evolution Badge
 [![AI Reviewer Evolution](assets/evolution_badge.svg)](https://github.com/sam4cpu/ai-pr-reviewer/actions)
+![Performance Health](assets/performance_badge.svg)
 
 ### Recruiter Badge  
 ![Impact Score](recruiter_badge.svg)
