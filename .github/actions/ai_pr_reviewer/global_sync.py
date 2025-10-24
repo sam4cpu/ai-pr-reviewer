@@ -19,7 +19,7 @@ def pull():
         return
     if HUB_DIR.exists():
         shutil.rmtree(HUB_DIR)
-    clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+    cclone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
     try:
         run(f"git clone --depth=1 {clone_url} {HUB_DIR}")
         candidate = HUB_DIR / "adaptive_network_weights.json"
@@ -78,7 +78,7 @@ def push():
     tmp = HUB_DIR
     if tmp.exists():
         shutil.rmtree(tmp)
-    clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
     try:
         run(f"git clone {clone_url} {tmp}")
         dest = tmp / f"adaptive_network_weights_{os.getenv('GITHUB_RUN_ID','local')}.json"
