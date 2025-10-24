@@ -1,6 +1,6 @@
 # AI PR Reviewer — Autonomous Adaptive Code Intelligence
 
-![Impact Score](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/blob/main/recruiter_badge.svg)
+![Impact Score](https://github.com/sam4cpu/ai-pr-reviewer/blob/main/recruiter_badge.svg)
 
 > **Autonomous AI system** for pull-request review, continuous self-learning, and cross-repository intelligence — built using multi-phase GitHub Actions workflows, reinforcement tuning, and predictive analysis.
 
@@ -82,6 +82,6 @@ The project automatically generates:
 
 1. **Clone the repo**  
    ```bash
-   git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
-   cd <YOUR_REPO>
+   git clone https://github.com/sam4cpu/ai-pr-reviewer.git
+   cd ai-pr-reviewer
 
