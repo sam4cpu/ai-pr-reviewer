@@ -1,80 +1,111 @@
 import os
 import subprocess
+import json
+import shutil
 from pathlib import Path
-from datetime import datetime
 
-HUB_REPO = os.getenv("NETWORK_HUB_REPO", "").strip()
-WORK_DIR = "/home/runner/work/ai-pr-reviewer/ai-pr-reviewer"
-HUB_DIR = "/tmp/ai_hub"
-
-def safe_run(cmd, check=True, capture=False):
-    """Run shell command safely and log clearly."""
+def run_cmd(cmd, cwd=None, check=True):
+    """Run a shell command safely with debug output."""
     print(f"[CMD] {' '.join(cmd)}")
     try:
-        if capture:
-            return subprocess.run(cmd, check=check, text=True, capture_output=True)
-        else:
-            subprocess.run(cmd, check=check)
+        subprocess.run(cmd, cwd=cwd, check=check)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Command failed: {e}")
-        raise
+        if check:
+            raise
+        else:
+            return False
+    return True
+
+def get_clone_url():
+    """Safely construct clone URL using repo + token secrets."""
+    token = os.getenv("NETWORK_HUB_TOKEN", "").strip()
+    repo_url = os.getenv("NETWORK_HUB_REPO", "").strip()
+
+    if not repo_url:
+        raise RuntimeError("[FATAL] Missing NETWORK_HUB_REPO secret.")
+
+    if not repo_url.startswith("https://github.com/"):
+        print(f"[WARN] NETWORK_HUB_REPO should be a full GitHub HTTPS URL, not '{repo_url}'.")
+
+    # Inject token only if provided
+    if token:
+        if repo_url.startswith("https://"):
+            return repo_url.replace("https://", f"https://x-access-token:{token}@")
+        else:
+            return f"https://x-access-token:{token}@{repo_url}"
+    else:
+        print("[WARN] No NETWORK_HUB_TOKEN found — cloning unauthenticated (public hub only).")
+        return repo_url
+
+def ensure_git_identity():
+    """Ensure git identity is configured inside CI."""
+    run_cmd(["git", "config", "--global", "user.email", "ai-reviewer-bot@github.com"], check=False)
+    run_cmd(["git", "config", "--global", "user.name", "AI Reviewer Bot"], check=False)
+
+def pull():
+    """Pull latest global hub state."""
+    clone_url = get_clone_url()
+    hub_dir = "/tmp/ai_hub"
+
+    if Path(hub_dir).exists():
+        shutil.rmtree(hub_dir)
+    print(f"[INFO] Cloning hub repo from {clone_url}...")
+    run_cmd(["git", "clone", clone_url, hub_dir])
+
+    target = Path("global_state.json")
+    src = Path(hub_dir) / "global_state.json"
+    if src.exists():
+        shutil.copy(src, target)
+        print(f"[SUCCESS] Pulled global state → {target}")
+    else:
+        print("[WARN] No global_state.json found in hub repo (new network?)")
 
 def push():
-    """Push generated summary and badge to global hub repo."""
-    if not HUB_REPO:
-        raise RuntimeError("NETWORK_HUB_REPO secret not set in GitHub Secrets!")
+    """Push new badges, metrics, or summaries to global hub."""
+    clone_url = get_clone_url()
+    hub_dir = "/tmp/ai_hub"
 
-    clone_url = f"https://{HUB_REPO}" if not HUB_REPO.startswith("https") else HUB_REPO
+    # Reset clone if exists
+    if Path(hub_dir).exists():
+        shutil.rmtree(hub_dir)
+
     print(f"[INFO] Cloning hub repo from {clone_url}...")
+    run_cmd(["git", "clone", clone_url, hub_dir])
 
-    # Clean old clone if exists
-    if os.path.exists(HUB_DIR):
-        subprocess.run(["rm", "-rf", HUB_DIR], check=True)
+    ensure_git_identity()
 
-    # --- Clone hub repo ---
-    safe_run(["git", "clone", clone_url, HUB_DIR])
+    Path(hub_dir, "assets").mkdir(exist_ok=True)
 
-    os.chdir(HUB_DIR)
-    safe_run(["git", "checkout", "main"])
-    safe_run(["git", "pull", "origin", "main"])
+    # Copy outputs
+    for f in ["evolution_state.json", "project_evolution_report.md"]:
+        if Path(f).exists():
+            shutil.copy(f, Path(hub_dir, f))
+            print(f"[INFO] Copied {f} → hub")
 
-    # --- Configure bot identity ---
-    safe_run(["git", "config", "user.name", "AI Reviewer Bot"])
-    safe_run(["git", "config", "user.email", "bot@ai-reviewer.local"])
+    if Path("assets/evolution_badge.svg").exists():
+        shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
 
-    # --- Copy new artifacts from the project workspace ---
-    artifacts = [
-        "assets/evolution_badge.svg",
-        "evolution_state.json",
-        "project_evolution_report.md",
-        "recruiter_summary.md",
-        "review_summary.md",
-    ]
-    for artifact in artifacts:
-        src = Path(WORK_DIR) / artifact
-        if src.exists():
-            safe_run(["cp", str(src), "."])
-        else:
-            print(f"[WARN] Missing artifact: {artifact}")
-
-    # --- Check for changes ---
-    result = safe_run(["git", "status", "--porcelain"], capture=True)
-    if not result.stdout.strip():
-        print("[INFO] No changes to commit. Skipping push.")
+    run_cmd(["git", "add", "."], cwd=hub_dir)
+    result = run_cmd(["git", "commit", "-m", "Evolution badge + report (auto)"], cwd=hub_dir, check=False)
+    if not result:
+        print("[INFO] No new changes to commit — skipping push.")
         return
 
-    commit_msg = f"Evolution badge + report (auto) — {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
-    safe_run(["git", "add", "."])
-    safe_run(["git", "commit", "-m", commit_msg])
-    safe_run(["git", "push", "origin", "main"])
-
-    print("[SUCCESS] Summary & badge synced successfully to network hub.")
+    run_cmd(["git", "push", "origin", "main"], cwd=hub_dir, check=False)
+    print("[SUCCESS] Synced global report + badge to hub.")
 
 if __name__ == "__main__":
-    print("[START] Pushing summary & badge to network hub...")
-    try:
+    mode = os.getenv("MODE", "").strip().lower()
+    import sys
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+
+    if mode == "pull":
+        pull()
+    elif mode == "push":
         push()
-    except Exception as e:
-        print(f"[FATAL] Global sync failed: {e}")
-        exit(1)
+    else:
+        print("Usage: python global_sync.py [pull|push]")
+
 
