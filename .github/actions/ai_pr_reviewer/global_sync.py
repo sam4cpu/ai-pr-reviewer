@@ -12,14 +12,15 @@ def run(cmd, cwd=None):
     subprocess.check_call(cmd, shell=True, cwd=cwd)
 
 def pull():
-    repo = os.getenv("NETWORK_HUB_REPO")
-    token = os.getenv("NETWORK_HUB_TOKEN")
+    hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
+    hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
+    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git"
     if not repo or not token:
         print("[WARN] NETWORK_HUB_REPO or NETWORK_HUB_TOKEN not set. Skipping pull.")
         return
     if HUB_DIR.exists():
         shutil.rmtree(HUB_DIR)
-    cclone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
+    clone_url = f"https://{hub_token}@github.com/{hub_repo}.git".strip().replace("\n", "")
     try:
         run(f"git clone --depth=1 {clone_url} {HUB_DIR}")
         candidate = HUB_DIR / "adaptive_network_weights.json"
