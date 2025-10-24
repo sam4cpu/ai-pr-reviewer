@@ -1,5 +1,8 @@
 #  AI PR Reviewer
 
+![Impact Score](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/blob/main/recruiter_badge.svg)
+> Autonomous Adaptive Code Intelligence System — built with multi-phase reinforcement, predictive learning, and networked AI synchronization.
+
 ![Build Status](https://img.shields.io/github/actions/workflow/status/sam4cpu/ai-pr-reviewer/pr-review.yml?label=build)
 ![Python](https://img.shields.io/badge/python-3.10-blue)
 ![AI](https://img.shields.io/badge/powered%20by-AI-purple)
