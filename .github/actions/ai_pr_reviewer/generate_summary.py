@@ -3,32 +3,37 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-import json
+from statistics import mean
 
+REVIEW_PATH = Path("artifacts/ai_review.md")
 CONF_FILE = Path("reviewer_confidence.json")
-if CONF_FILE.exists():
-    try:
-        confidence = json.loads(CONF_FILE.read_text(encoding="utf-8"))
-    except Exception as e:
-        print(f"[WARN] Failed to load reviewer_confidence.json: {e}")
-        confidence = {}
-else:
-    print("[WARN] reviewer_confidence.json not found — using default confidence baseline.")
-    confidence = {"calibrated_confidence": 0.5}
+WEIGHTS_FILE = Path("adaptive_weights.json")
+OUTPUT_JSON = Path("review_summary.json")
+OUTPUT_MD = Path("review_summary.md")
 
+def load_json_safely(path: Path, default=None):
+    """Safely load JSON data, returning a default if unavailable."""
+    if not path.exists():
+        print(f"[WARN] {path} not found, using default baseline.")
+        return default or {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[WARN] Could not parse {path.name}: {e}")
+        return default or {}
 
 def extract_section(text, header):
-    """Extract a markdown section by its header."""
+    """Extracts a markdown section by its header."""
     pattern = rf"##+ {header}[\s\S]*?(?=\n##|\Z)"
     match = re.search(pattern, text, re.IGNORECASE)
     return match.group(0).strip() if match else f"_{header} section missing_"
 
 def count_bullets(section_text):
-    """Count markdown bullets for quick scoring."""
+    """Counts bullet points for simple metrics."""
     return len(re.findall(r"^- ", section_text, flags=re.MULTILINE))
 
 def detect_high_risk_terms(text):
-    """Detect security or stability red flags."""
+    """Scans for risk-related words (security, crashes, etc.)."""
     risk_terms = [
         "security", "vulnerability", "crash", "data loss",
         "leak", "injection", "auth", "password", "corruption"
@@ -36,84 +41,93 @@ def detect_high_risk_terms(text):
     lowered = text.lower()
     return [term for term in risk_terms if term in lowered]
 
-def compute_confidence_score(summary, issues, suggestions, risks):
-    """Weighted heuristic for confidence and risk adjustment."""
+def compute_confidence_score(summary, issues, suggestions, risks, calibrated_conf):
+    """Computes a calibrated AI confidence score."""
     length_factor = len(summary) / 200
     balance = abs(count_bullets(issues) - count_bullets(suggestions))
 
-    base_score = 100 - (balance * 5) - (10 if "missing" in summary.lower() else 0)
+    base_score = calibrated_conf * 100
+    base_score -= balance * 5
+    base_score -= 10 if "missing" in summary.lower() else 0
+    base_score -= len(risks) * 5
     if length_factor < 0.5:
-        base_score -= 10
+        base_score -= 5
 
-    # Penalize for risk presence
-    if risks:
-        base_score -= len(risks) * 5
-        base_score = min(base_score, 80)
+    return max(30, min(98, round(base_score)))
 
-    return max(30, min(95, int(base_score)))
+def generate_summary():
+    print("[START] Generating recruiter-oriented summary...")
 
-def main():
-    review_path = "artifacts/ai_review.md"
-    if not os.path.exists(review_path):
-        print("[FATAL] No ai_review.md found — ensure artifacts are downloaded.")
+    if not REVIEW_PATH.exists():
+        print("[FATAL] No ai_review.md found — make sure reviewer artifacts are generated first.")
         return
 
-    print(f"[INFO] Reading AI review from {review_path}...")
-    with open(review_path, "r", encoding="utf-8") as f:
-        review_text = f.read()
+    # Load optional data
+    confidence = load_json_safely(CONF_FILE, {"calibrated_confidence": 0.5})
+    weights = load_json_safely(WEIGHTS_FILE, {})
+    numeric_weights = [v for v in weights.values() if isinstance(v, (int, float))]
+    insight_depth = mean(numeric_weights) * 10 if numeric_weights else 50
+    if not numeric_weights:
+        print("[WARN] No numeric weights found; using neutral baseline for insight depth.")
 
+    # Read review markdown
+    review_text = REVIEW_PATH.read_text(encoding="utf-8")
     summary = extract_section(review_text, "Summary")
     issues = extract_section(review_text, "Potential Issues")
     suggestions = extract_section(review_text, "Suggestions")
     tests = extract_section(review_text, "Testing Recommendations")
 
-    # --- Analytics ---
-    bullet_issues = count_bullets(issues)
-    bullet_suggestions = count_bullets(suggestions)
+    # Compute analytics
     risks = detect_high_risk_terms(review_text)
-    score = compute_confidence_score(summary, issues, suggestions, risks)
+    score = compute_confidence_score(
+        summary, issues, suggestions, risks, confidence.get("calibrated_confidence", 0.5)
+    )
 
+    # Compose summary
     summary_data = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "summary": summary,
-        "potential_issues": bullet_issues,
-        "suggestions": bullet_suggestions,
+        "avg_confidence": confidence.get("calibrated_confidence", 0.5) * 100,
+        "insight_depth": insight_depth,
         "confidence_score": score,
+        "potential_issues": count_bullets(issues),
+        "suggestions": count_bullets(suggestions),
         "high_risk_terms": risks,
     }
 
-    # --- Save summary ---
-    with open("review_summary.json", "w", encoding="utf-8") as jf:
-        json.dump(summary_data, jf, indent=2)
-    print("[INFO] Saved structured summary to review_summary.json")
+    # Write JSON
+    OUTPUT_JSON.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
+    print(f"[INFO] Saved structured summary → {OUTPUT_JSON}")
 
-    md_content = f"""## AI Review Summary
+    # Write Markdown (recruiter format)
+    md_content = f"""##  AI Review Summary 
 
 **Confidence Score:** {score}/100  
-**Detected Issues:** {bullet_issues}  
-**Suggestions:** {bullet_suggestions}  
+**Calibrated Confidence:** {summary_data['avg_confidence']:.1f}%  
+**Insight Depth:** {insight_depth:.1f}  
+**Detected Issues:** {summary_data['potential_issues']}  
+**Suggestions:** {summary_data['suggestions']}  
 **High-Risk Keywords:** {', '.join(risks) if risks else 'None'}
 
-### Summary
+###  Summary
 {summary}
 
-### Potential Issues
+### ⚠️ Potential Issues
 {issues}
 
-### Suggestions
+###  Suggestions
 {suggestions}
 
-### Testing Recommendations
+###  Testing Recommendations
 {tests}
 
 ---
 
-_This summary was automatically generated by the AI PR Reviewer workflow._
+_This summary was generated autonomously by the AI Reviewer Network (v20.5)._
 """
-    with open("review_summary.md", "w", encoding="utf-8") as mf:
-        mf.write(md_content)
-    print("[SUCCESS] review_summary.md generated successfully.")
+    OUTPUT_MD.write_text(md_content, encoding="utf-8")
+    print(f"[SUCCESS] {OUTPUT_MD.name} generated successfully.")
 
 if __name__ == "__main__":
-    main()
+    generate_summary()
+
 
