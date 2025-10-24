@@ -23,7 +23,7 @@ AI PR Reviewer is an **AI-driven code review assistant** that continuously impro
 | **Workflow Orchestration** | Multi-phase GitHub Actions (`ai_pr_reviewer.yml`) coordinating review, analysis, tuning, and dashboard generation. |
 | **Reviewer Engine** | Python modules (`reviewer.py`, `reinforcement_tuner.py`, `reviewer_predictive.py`) executing structured PR analysis and self-evaluation. |
 | **Adaptive Weights** | Stored in `adaptive_weights.json` — dynamically tuned each CI run. |
-| **Visualization** | `dashboard_v18.html` and `recruiter_badge.svg` summarize performance. |
+| **Visualization** | `dashboard_v18.html` and `recruiter_badge.svg` summarize performance. | 
 
 ---
 
