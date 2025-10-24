@@ -1,136 +1,132 @@
-"""
-recruiter_report.py — AI PR Reviewer 
-Generates:
-  - recruiter_summary.md  (markdown summary)
-  - recruiter_score.json  (raw metrics)
-  - recruiter_badge.svg   (dynamic badge)
-"""
-
-from pathlib import Path
+import os
 import json
+import re
 from datetime import datetime
+from pathlib import Path
 from statistics import mean
 
-# Paths
-DASHBOARD_SUMMARY = Path("dashboard_summary.json")
-WEIGHTS = Path("adaptive_weights.json")
-CONFIDENCE = Path("reviewer_confidence.json")
+CONF_FILE = Path("reviewer_confidence.json")
+WEIGHTS_FILE = Path("adaptive_weights.json")
+OUTPUT_JSON = Path("recruiter_summary.json")
 OUTPUT_MD = Path("recruiter_summary.md")
-OUTPUT_JSON = Path("recruiter_score.json")
-BADGE_SVG = Path("recruiter_badge.svg")
+REVIEW_PATH = Path("artifacts/ai_review.md")
 
-def safe_load_json(path):
+def load_json_safely(path: Path, default=None):
+    """Safely load a JSON file."""
+    if not path.exists():
+        print(f"[WARN] {path} not found — using default baseline.")
+        return default or {}
     try:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        pass
-    return {}
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[WARN] Failed to parse {path}: {e}")
+        return default or {}
 
-def compute_project_score(metrics):
-    adaptability = metrics.get("adaptability", 0)
-    confidence = metrics.get("avg_confidence", 0)
-    insight = metrics.get("insight_depth", 0)
-    return round((0.4 * adaptability + 0.35 * confidence + 0.25 * insight), 2)
+def extract_section(text, header):
+    """Extract markdown section by header."""
+    pattern = rf"##+ {header}[\s\S]*?(?=\n##|\Z)"
+    match = re.search(pattern, text, re.IGNORECASE)
+    return match.group(0).strip() if match else f"_{header} section missing_"
 
-def generate_badge(score):
-    # Badge color logic
-    if score >= 90:
-        color = "#00c853"  # bright green
-    elif score >= 75:
-        color = "#4caf50"
-    elif score >= 60:
-        color = "#ffb300"
-    else:
-        color = "#f44336"
+def count_bullets(section_text):
+    """Count bullet points."""
+    return len(re.findall(r"^- ", section_text, flags=re.MULTILINE))
 
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="180" height="28" role="img">
-  <linearGradient id="s" x2="0" y2="100%">
-    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-    <stop offset="1" stop-opacity=".1"/>
-  </linearGradient>
-  <rect rx="3" width="180" height="28" fill="#555"/>
-  <rect rx="3" x="100" width="80" height="28" fill="{color}"/>
-  <path fill="{color}" d="M100 0h4v28h-4z"/>
-  <rect rx="3" width="180" height="28" fill="url(#s)"/>
-  <g fill="#fff" text-anchor="middle"
-     font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="12">
-    <text x="50" y="18" fill="#010101" fill-opacity=".3">Impact Score</text>
-    <text x="50" y="17">Impact Score</text>
-    <text x="140" y="18" fill="#010101" fill-opacity=".3">{score}/100</text>
-    <text x="140" y="17">{score}/100</text>
-  </g>
-</svg>"""
-    BADGE_SVG.write_text(svg, encoding="utf-8")
-    print(f"[INFO] Generated recruiter badge → {BADGE_SVG}")
+def detect_high_risk_terms(text):
+    """Detect key security or reliability terms."""
+    risk_terms = [
+        "security", "vulnerability", "crash", "data loss",
+        "leak", "injection", "auth", "password", "corruption"
+    ]
+    lowered = text.lower()
+    return [term for term in risk_terms if term in lowered]
+
+def compute_confidence_score(summary, issues, suggestions, risks, calibrated_conf):
+    """Compute recruiter-facing confidence metric."""
+    length_factor = len(summary) / 200
+    balance = abs(count_bullets(issues) - count_bullets(suggestions))
+
+    base_score = calibrated_conf * 100
+    base_score -= balance * 5
+    base_score -= 10 if "missing" in summary.lower() else 0
+    base_score -= len(risks) * 5
+    if length_factor < 0.5:
+        base_score -= 5
+
+    return max(30, min(98, round(base_score)))
 
 def generate_summary():
-    dashboard = safe_load_json(DASHBOARD_SUMMARY)
-    weights = safe_load_json(WEIGHTS)
-    confidence_data = safe_load_json(CONFIDENCE)
+    print("[START] Generating recruiter-oriented report...")
 
+    # === Load dependencies ===
+    confidence = load_json_safely(CONF_FILE, {"calibrated_confidence": 0.5})
+    weights = load_json_safely(WEIGHTS_FILE, {})
     numeric_weights = [v for v in weights.values() if isinstance(v, (int, float))]
+    insight_depth = mean(numeric_weights) * 10 if numeric_weights else 50
     if not numeric_weights:
         print("[WARN] No numeric weights found; using neutral baseline for insight depth.")
 
-    insight_depth = mean(numeric_weights) * 10 if numeric_weights else 50
+    # === Load AI Review ===
+    if not REVIEW_PATH.exists():
+        print("[FATAL] No ai_review.md found — ensure reviewer artifacts exist.")
+        return
+    review_text = REVIEW_PATH.read_text(encoding="utf-8")
 
-    summary = {
+    # Extract sections
+    summary = extract_section(review_text, "Summary")
+    issues = extract_section(review_text, "Potential Issues")
+    suggestions = extract_section(review_text, "Suggestions")
+    tests = extract_section(review_text, "Testing Recommendations")
+
+    risks = detect_high_risk_terms(review_text)
+    score = compute_confidence_score(
+        summary, issues, suggestions, risks, confidence.get("calibrated_confidence", 0.5)
+    )
+
+    # === Compose summary data ===
+    summary_data = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
         "avg_confidence": confidence.get("calibrated_confidence", 0.5) * 100,
-        "adaptability_index": weights.get("adaptivity", 1.0),
         "insight_depth": insight_depth,
-        "impact_score": round(
-            (confidence.get("calibrated_confidence", 0.5) * 100 + insight_depth) / 2, 2
-        ),
+        "confidence_score": score,
+        "potential_issues": count_bullets(issues),
+        "suggestions": count_bullets(suggestions),
+        "high_risk_terms": risks,
     }
 
-    metrics = {
-        "total_prs": dashboard.get("total_prs", 0),
-        "avg_confidence": dashboard.get("avg_confidence", 75),
-        "adaptability": round(weights.get("depth_multiplier", 1.0) * 50, 2),
-        "insight_depth": summary["insight_depth"],
-        "impact_score": summary["impact_score"],
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-    }
+    # Write JSON
+    OUTPUT_JSON.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
+    print(f"[INFO] Saved recruiter summary JSON → {OUTPUT_JSON}")
 
-    score = compute_project_score(metrics)
-    metrics["impact_score"] = score
-    OUTPUT_JSON.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    generate_badge(score)
+    # Write Markdown summary
+    md_content = f"""## Recruiter-Facing AI Reviewer Summary
 
-    md = f"""# AI Reviewer — Recruiter Summary  
-*Autonomous Adaptive Code Intelligence System*
+**Confidence Score:** {score}/100  
+**Calibrated Confidence:** {summary_data['avg_confidence']:.1f}%  
+**Insight Depth:** {insight_depth:.1f}  
+**Detected Issues:** {summary_data['potential_issues']}  
+**Suggestions:** {summary_data['suggestions']}  
+**High-Risk Keywords:** {', '.join(risks) if risks else 'None'}
 
-![Impact Score](recruiter_badge.svg)
+### Summary
+{summary}
 
-**Project Overview**
-- Adaptive AI reviewer integrated via GitHub Actions  
-- Self-learning (reinforcement + predictive tuning)  
-- Networked intelligence + recruiter auto-reporting  
+### Potential Issues
+{issues}
 
-**Latest Metrics**
-| Metric | Value |
-|:-------|:------|
-| Total PRs Reviewed | {metrics['total_prs']} |
-| Avg Confidence | {metrics['avg_confidence']}% |
-| Adaptability Index | {metrics['adaptability']} |
-| Insight Depth | {metrics['insight_depth']:.2f} |
-| **Impact Score** | **{metrics['impact_score']} / 100** |
+### Suggestions
+{suggestions}
 
-**Highlights**
-- ⚙️ Multi-phase workflow orchestration  
-- 🧠 Predictive & Reinforcement learning  
-- 🌐 Global reviewer mesh fusion  
-- 📈 Auto-generated dashboards & badges  
+### Testing Recommendations
+{tests}
 
-**Verdict**
-> *"Demonstrates strong software architecture, adaptive AI reasoning, and CI/CD integration — well beyond standard university projects."*
+---
 
-_Last updated: {metrics['timestamp']}_  
+_This recruiter-facing summary was auto-generated by the AI Reviewer Network (v20.5)._
 """
-    OUTPUT_MD.write_text(md, encoding="utf-8")
-    print(f"[INFO] Recruiter summary generated → {OUTPUT_MD}")
-    print(f"[INFO] Impact Score: {score}/100")
+    OUTPUT_MD.write_text(md_content, encoding="utf-8")
+    print(f"[SUCCESS] Recruiter report generated: {OUTPUT_MD.name}")
 
 if __name__ == "__main__":
     generate_summary()
+
