@@ -62,49 +62,49 @@ def pull():
         print("[WARN] No global_state.json found in hub repo (new network?)")
 
 def push():
-    """Push new badges, metrics, or summaries to global hub in a CI-safe way."""
+    """CI-safe push of badges, reports, and evolution state to network hub."""
     clone_url = get_clone_url()
     hub_dir = "/tmp/ai_hub"
 
-    # 1. Reset clone if it exists
+    # 1. Reset clone if exists
     if Path(hub_dir).exists():
         shutil.rmtree(hub_dir)
 
     print(f"[INFO] Cloning hub repo from {clone_url}...")
     run_cmd(["git", "clone", clone_url, hub_dir])
 
-    # 2. Ensure git identity
+    # 2. Configure git identity
     ensure_git_identity()
 
-    # 3. Checkout or create 'main' branch BEFORE making any changes
-    print("[INFO] Switching to branch 'main' before any commits...")
+    # 3. Ensure HEAD is on 'main' branch
+    print("[INFO] Ensuring branch 'main' exists and is checked out...")
     run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
+    current_branch = subprocess.run(
+        ["git", "branch", "--show-current"], cwd=hub_dir, capture_output=True, text=True
+    ).stdout.strip()
+    print(f"[DEBUG] Current branch after checkout: '{current_branch}'")
 
-    # Verify current branch (debug)
-    branch_result = subprocess.run(
-        ["git", "branch", "--show-current"],
-        cwd=hub_dir,
-        capture_output=True,
-        text=True
-    )
-    print(f"[DEBUG] Current branch after checkout: '{branch_result.stdout.strip()}'")
-
-    # 4. Ensure assets directory exists
+    # 4. Ensure assets folder exists
     Path(hub_dir, "assets").mkdir(exist_ok=True)
 
-    # 5. Copy files to hub directory
-    for f in ["evolution_state.json", "project_evolution_report.md"]:
+    # 5. Copy all outputs
+    files_to_copy = [
+        "evolution_state.json",
+        "project_evolution_report.md",
+        "assets/evolution_badge.svg"
+    ]
+    for f in files_to_copy:
         if Path(f).exists():
-            shutil.copy(f, Path(hub_dir, f))
-            print(f"[INFO] Copied {f} → hub")
-
-    if Path("assets/evolution_badge.svg").exists():
-        shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
+            dest = Path(hub_dir) / f
+            if f.startswith("assets/"):
+                dest.parent.mkdir(exist_ok=True)
+            shutil.copy(f, dest)
+            print(f"[INFO] Copied {f} → {dest}")
 
     # 6. Stage changes
     run_cmd(["git", "add", "."], cwd=hub_dir)
 
-    # 7. Commit changes
+    # 7. Commit changes if any
     commit_result = subprocess.run(
         ["git", "commit", "-m", "Evolution badge + report (auto)"],
         cwd=hub_dir,
@@ -113,12 +113,11 @@ def push():
     )
 
     if "nothing to commit" in commit_result.stdout.lower():
-        print("[INFO] No changes to commit — skipping push.")
+        print("[INFO] No new changes to commit — skipping push.")
         return
     print(f"[INFO] Commit created:\n{commit_result.stdout}")
 
-    # 8. Push to main branch
-    print("[INFO] Pushing changes to 'main'...")
+    # 8. Push changes to main branch
     push_result = subprocess.run(
         ["git", "push", "origin", "main"],
         cwd=hub_dir,
@@ -132,7 +131,6 @@ def push():
         print("[WARN] Push failed — attempting force push...")
         run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
         print("[FINAL] Force push attempted (safe for CI).")
-
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
