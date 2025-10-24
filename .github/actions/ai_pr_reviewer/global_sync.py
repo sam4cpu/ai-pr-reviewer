@@ -66,18 +66,21 @@ def push():
     clone_url = get_clone_url()
     hub_dir = "/tmp/ai_hub"
 
-    # Reset clone if exists
+    # Reset clone if it exists
     if Path(hub_dir).exists():
         shutil.rmtree(hub_dir)
 
     print(f"[INFO] Cloning hub repo from {clone_url}...")
     run_cmd(["git", "clone", clone_url, hub_dir])
 
+    # Ensure Git identity
     ensure_git_identity()
 
     run_cmd(["git", "checkout", "-B", "main"], cwd=hub_dir)
 
+    # Ensure assets directory exists
     Path(hub_dir, "assets").mkdir(exist_ok=True)
+
     for f in ["evolution_state.json", "project_evolution_report.md"]:
         if Path(f).exists():
             shutil.copy(f, Path(hub_dir, f))
@@ -85,7 +88,7 @@ def push():
 
     if Path("assets/evolution_badge.svg").exists():
         shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
-        
+
     run_cmd(["git", "add", "."], cwd=hub_dir)
     commit_result = subprocess.run(
         ["git", "commit", "-m", "Evolution badge + report (auto)"],
@@ -97,8 +100,7 @@ def push():
     if "nothing to commit" in commit_result.stdout.lower():
         print("[INFO] No new changes to commit — skipping push.")
         return
-        
-    # Push to main branch
+
     push_result = subprocess.run(
         ["git", "push", "origin", "main"],
         cwd=hub_dir,
@@ -109,11 +111,10 @@ def push():
     if push_result.returncode == 0:
         print("[SUCCESS] Synced global report + badge to hub.")
     else:
-        # Force push as last resort
+        # Force push as a last resort
         print("[WARN] Push failed. Attempting force push...")
         run_cmd(["git", "push", "origin", "main", "--force"], cwd=hub_dir, check=False)
         print("[FINAL] Force push attempted (safe for CI).")
-
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
