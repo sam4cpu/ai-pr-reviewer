@@ -37,8 +37,9 @@ import shutil
 import subprocess
 
 def push():
-    hub_repo = os.getenv("NETWORK_HUB_REPO")
-    hub_token = os.getenv("NETWORK_HUB_TOKEN")
+    hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
+    hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
+    
     if not hub_repo or not hub_token:
         print("[WARN] Missing NETWORK_HUB_REPO or NETWORK_HUB_TOKEN.")
         return
