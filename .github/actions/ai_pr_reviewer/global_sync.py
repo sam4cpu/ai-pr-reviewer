@@ -37,6 +37,26 @@ import shutil
 import subprocess
 
 def push():
+    print(f"[INFO] Cloning hub repo from {clone_url}...")
+    subprocess.run(["git", "clone", clone_url, hub_dir], check=True)
+
+    os.chdir(hub_dir)
+    subprocess.run(["git", "checkout", "main"], check=True)
+    subprocess.run(["git", "reset", "--hard", "origin/main"], check=True)
+
+    # Copy artifacts
+    subprocess.run(["cp", "-r", "/home/runner/work/ai-pr-reviewer/ai-pr-reviewer/recruiter_summary.*", "."], check=True)
+
+    # Configure bot identity (fixes 'Author identity unknown')
+    subprocess.run(["git", "config", "user.name", "AI Reviewer Bot"], check=True)
+    subprocess.run(["git", "config", "user.email", "bot@ai-reviewer.local"], check=True)
+
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", "Evolution badge + report (auto)"], check=True)
+    subprocess.run(["git", "push", "origin", "main"], check=True)
+
+    print("[SUCCESS] Summary & badge synced to network hub.")
+
     hub_repo = os.getenv("NETWORK_HUB_REPO", "").strip().replace("\n", "")
     hub_token = os.getenv("NETWORK_HUB_TOKEN", "").strip().replace("\n", "")
     
