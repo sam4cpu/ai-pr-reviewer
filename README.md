@@ -73,7 +73,7 @@ The project automatically generates:
 - `recruiter_summary.md` — concise performance overview  
 - `recruiter_score.json` — raw metric data  
 - `recruiter_badge.svg` — auto-updating visual badge  
-
+ 
 > “Demonstrates strong system design, applied AI reasoning, and CI/CD automation — exceeding expectations for early-career SWE level.”
 
 ---
