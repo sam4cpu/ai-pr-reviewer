@@ -66,7 +66,7 @@ Technical Highlights
 
 ---
 
-## Recruiter Summary
+## Recruiter Summary 
 
 The project automatically generates:
 
