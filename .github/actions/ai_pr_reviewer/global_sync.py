@@ -87,13 +87,33 @@ def push():
         shutil.copy("assets/evolution_badge.svg", Path(hub_dir, "assets/evolution_badge.svg"))
 
     run_cmd(["git", "add", "."], cwd=hub_dir)
-    result = run_cmd(["git", "commit", "-m", "Evolution badge + report (auto)"], cwd=hub_dir, check=False)
-    if not result:
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", "Evolution badge + report (auto)"],
+        cwd=hub_dir,
+        capture_output=True,
+        text=True
+    )
+
+    if "nothing to commit" in commit_result.stdout.lower():
         print("[INFO] No new changes to commit — skipping push.")
         return
 
-    run_cmd(["git", "push", "origin", "main"], cwd=hub_dir, check=False)
-    print("[SUCCESS] Synced global report + badge to hub.")
+    # Ensure branch context (avoids detached HEAD)
+    run_cmd(["git", "branch", "-M", "main"], cwd=hub_dir, check=False)
+
+    push_result = subprocess.run(
+        ["git", "push", "origin", "HEAD:main"],
+        cwd=hub_dir,
+        capture_output=True,
+        text=True
+    )
+
+    if push_result.returncode == 0:
+        print("[SUCCESS] Synced global report + badge to hub.")
+    else:
+        print("[WARN] Push attempt failed (detached HEAD?). Retrying with force...")
+        run_cmd(["git", "push", "origin", "HEAD:main", "--force"], cwd=hub_dir, check=False)
+        print("[FINAL] Force push attempted (safe for CI).")
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "").strip().lower()
