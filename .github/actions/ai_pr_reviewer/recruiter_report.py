@@ -93,7 +93,6 @@ def generate_summary():
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     }
 
-
     score = compute_project_score(metrics)
     metrics["impact_score"] = score
     OUTPUT_JSON.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
