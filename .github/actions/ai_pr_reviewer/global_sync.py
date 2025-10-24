@@ -149,6 +149,47 @@ def push():
 
     print("[INFO] Generated evolution_badge.svg with live CI link.")
 
+        # === Generate performance history badge ===
+    perf_file = Path("evolution_state.json")
+    performance_score = 75  # Default baseline
+    color = "#FFD33D"  # Default yellow
+
+    if perf_file.exists():
+        try:
+            perf_data = json.loads(perf_file.read_text(encoding="utf-8"))
+            # Compute weighted score (confidence + adaptability)
+            confidence = perf_data.get("avg_confidence", 50)
+            adaptability = perf_data.get("adaptability_index", 1.0) * 50
+            performance_score = round((confidence + adaptability) / 2, 2)
+
+            # Color logic based on score
+            if performance_score >= 80:
+                color = "#2EA44F"  # Green
+            elif performance_score >= 60:
+                color = "#FFD33D"  # Yellow
+            else:
+                color = "#D73A49"  # Red
+        except Exception as e:
+            print(f"[WARN] Failed to read performance data: {e}")
+
+    perf_svg = f"""
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="28">
+  <rect width="260" height="28" fill="#24292e" rx="5"/>
+  <text x="10" y="19" fill="#fff" font-family="monospace" font-size="13">Performance Health</text>
+  <rect x="160" width="90" height="28" fill="{color}" rx="5"/>
+  <text x="180" y="19" fill="#000" font-family="monospace" font-size="13">{performance_score}%</text>
+</svg>
+""".strip()
+
+    (assets_dir / "performance_badge.svg").write_text(perf_svg, encoding="utf-8")
+    print(f"[INFO] Generated performance_badge.svg (score={performance_score}, color={color}).")
+
+    run_cmd(["git", "add", "assets/performance_badge.svg"], cwd=hub_dir)
+    run_cmd(["git", "commit", "-m", "Add performance history badge (auto)"], cwd=hub_dir, check=False)
+    run_cmd(["git", "push", "origin", "HEAD:main"], cwd=hub_dir, check=False)
+    print("[SUCCESS] Performance badge updated and pushed.")
+
+
     # Commit + push badge to hub
     run_cmd(["git", "add", "assets/evolution_badge.svg"], cwd=hub_dir)
     run_cmd(["git", "commit", "-m", "Add live evolution badge (auto)"], cwd=hub_dir, check=False)
