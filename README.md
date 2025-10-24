@@ -2,6 +2,20 @@
 
 ![Impact Score](https://github.com/sam4cpu/ai-pr-reviewer/blob/main/recruiter_badge.svg)
 
+# AI Reviewer Hub Dashboard
+
+[![AI Reviewer Evolution](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/evolution_badge.svg)](https://github.com/sam4cpu/ai-pr-reviewer/actions)
+[![Performance Health](https://raw.githubusercontent.com/sam4cpu/ai-review-hub/main/assets/performance_badge.svg)](https://github.com/sam4cpu/ai-review-hub)
+
+---
+
+###  Global AI Reviewer Network
+This dashboard shows the evolution of your **autonomous AI PR Reviewer**, its **performance health**, and recruiter-facing reports.
+
+[View Latest Report](https://github.com/sam4cpu/ai-review-hub/blob/main/project_evolution_report.md)  
+[Evolution State JSON](https://github.com/sam4cpu/ai-review-hub/blob/main/evolution_state.json)
+
+
 > **Autonomous AI system** for pull-request review, continuous self-learning, and cross-repository intelligence — built using multi-phase GitHub Actions workflows, reinforcement tuning, and predictive analysis.
 
 ---
