@@ -5,11 +5,11 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
   schedule:
-    - cron: "0 12 * * 1"  # every Monday at noon UTC (for autonomous runs)
+    - cron: "0 12 * * 1"
 
 env:
-  NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}       # e.g. my-org/ai-review-hub
-  NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}     # PAT with read/write to hub
+  NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}
+  NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}
 
 jobs:
   ai_reviewer_full_pipeline:
@@ -19,12 +19,10 @@ jobs:
       pull-requests: write
 
     steps:
-      # --- Base setup ---------------------------------------------------------
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      # --- Base setup ---
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -32,72 +30,50 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install_deps
 
-      # --- Core Reviewer Phase (Day 17) ---------------------------------------
+      # --- Reviewer & AI Pipeline ---
       - name: Fetch PR diff
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "[INFO] Fetching PR diff..."
           curl -sSL -H "Accept: application/vnd.github.v3.diff" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             ${{ github.event.pull_request.url }} > pr_diff.patch || true
-          if [ ! -s pr_diff.patch ]; then
-            echo "[WARN] pr_diff.patch empty — continuing to allow network steps."
-          fi
 
       - name: Run Predictive/Adaptive Reviewer
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "[START] Running predictive/adaptive review..."
-          python .github/actions/ai_pr_reviewer/reviewer_predictive.py || python .github/actions/ai_pr_reviewer/reviewer.py
-          echo "[DONE] Local review produced artifacts."
+          python .github/actions/ai_pr_reviewer/reviewer_predictive.py \
+          || python .github/actions/ai_pr_reviewer/reviewer.py
 
-      # --- Global Intelligence Sync (Network Fusion) --------------------------
+      # --- Global Hub Sync ---
       - name: Pull Global Hub State
-        env:
-          NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}
-          NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}
         run: |
-          echo "[START] Pulling global hub content..."
           python .github/actions/ai_pr_reviewer/global_sync.py pull
-          echo "[DONE] Pulled hub state (if available)."
 
       - name: Fuse Local + Global Adaptive State
         run: |
-          echo "[START] Merging local + global adaptive weights..."
           python .github/actions/ai_pr_reviewer/network_fusion.py
-          echo "[DONE] Fusion complete."
 
       - name: Calibrate Reviewer Confidence
         run: |
-          echo "[START] Calibrating reviewer confidence..."
           python .github/actions/ai_pr_reviewer/reviewer_confidence.py
-          echo "[DONE] Confidence calibration saved."
 
-      # --- Dashboard + Recruiter Report (Day 19) ------------------------------
+      # --- Dashboard & Reports ---
       - name: Generate Global Dashboard
         run: |
-          echo "[START] Generating Global Dashboard..."
           python .github/actions/ai_pr_reviewer/generate_dashboard_v19.py
-          echo "[DONE] dashboard_v19.html produced."
 
       - name: Generate Recruiter Summary Report
         run: |
-          echo "[START] Generating recruiter-oriented report..."
           python .github/actions/ai_pr_reviewer/recruiter_report.py
-          echo "[DONE] recruiter_report.md generated."
 
-      # --- Self-Evolution & Badge (Day 20) ------------------------------------
       - name: Run Self-Evolution
         run: |
-          echo "[START] Running Self-Evolution check..."
           python .github/actions/ai_pr_reviewer/self_evolve.py
-          echo "[DONE] Evolution state + badge generated."
 
-      # --- Artifact Handling --------------------------------------------------
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      # --- Upload Artifacts ---
+      - uses: actions/upload-artifact@v4
         with:
           name: ai-reviewer-full-artifacts
           path: |
@@ -113,30 +89,19 @@ jobs:
             evolution_state.json
             project_evolution_report.md
           if-no-files-found: ignore
-          
+
       - name: Cleanup hub temp directory
         run: rm -rf /tmp/ai_hub || true
 
-      # --- Push merged/evolved state -----------------------------------------
+      # --- CI-Safe Push to Hub ---
       - name: Push merged state & badge back to hub
         env:
           NETWORK_HUB_REPO: ${{ secrets.NETWORK_HUB_REPO }}
           NETWORK_HUB_TOKEN: ${{ secrets.NETWORK_HUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          echo "[START] Pushing summary & badge to network hub..."
           python .github/actions/ai_pr_reviewer/global_sync.py push
-          mkdir -p assets
-          mv evolution_badge.svg assets/evolution_badge.svg || true
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add assets/evolution_badge.svg project_evolution_report.md evolution_state.json || true
-          git commit -m " Evolution badge + report (auto)" || echo "No changes"
-          git push
-          echo "[DONE] Push complete."
 
-      # --- PR Comment Summary -------------------------------------------------
+      # --- PR Comment Summary ---
       - name: Post Summary Comment to PR
         if: github.event.pull_request.number
         env:
@@ -150,24 +115,6 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             -d "{\"body\": \"### Full Pipeline Summary\\n\\n$SUMMARY\\n\\n![Evolution Badge](https://github.com/${GITHUB_REPOSITORY}/blob/main/assets/evolution_badge.svg)\"}" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-
-      - name: Generate recruiter-friendly summary + badge
-        run: |
-          python .github/actions/ai_pr_reviewer/recruiter_report.py
-
-      - name: Upload recruiter report
-        uses: actions/upload-artifact@v4
-        with:
-           name: recruiter-summary
-           path: |
-             recruiter_summary.md
-             recruiter_score.json
-             recruiter_badge.svg
-           if-no-files-found: ignore
-
-
-      - name: Log Final State
-        run: echo "[FINAL] Networked Reviewer Mesh + Dashboard + Self-Evolution complete."
 
       
 
